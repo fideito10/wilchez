@@ -50,13 +50,13 @@ st.markdown("""
         max-width: 450px;
         margin: 5% auto;
         padding: 3rem;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(20px);
         border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         text-align: center;
-        color: white;
+        color: #000000 !important;
     }
     
     .login-logo {
@@ -84,7 +84,7 @@ st.markdown("""
     
     /* Estilo para inputs de Streamlit */
     div[data-baseweb="input"] input {
-        color: white !important;
+        color: #000000 !important;
     }
     
     /* Sidebar styling */
@@ -155,8 +155,13 @@ st.markdown("""
 
     /* Inputs y áreas de texto */
     div[data-baseweb="input"], div[data-baseweb="textarea"] {
-        background-color: rgba(0,0,0,0.5) !important;
-        border: 1px solid rgba(168, 224, 99, 0.2) !important;
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid rgba(168, 224, 99, 0.4) !important;
+    }
+    
+    /* Forzar color negro en etiquetas SOLO en el login para visibilidad */
+    .login-container label {
+        color: #000000 !important;
     }
     
     </style>
