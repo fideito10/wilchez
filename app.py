@@ -16,6 +16,24 @@ st.markdown("""
         font-family: 'Outfit', sans-serif;
     }
     
+    /* Ajustes para móviles iPhone y Notch */
+    @media (max-width: 768px) {
+        .login-container {
+            width: 90% !important;
+            padding: 1.5rem !important;
+            margin: 10% auto !important;
+        }
+        .login-title {
+            font-size: 1.8rem !important;
+        }
+        .login-logo {
+            font-size: 2rem !important;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 1.6rem !important;
+        }
+    }
+
     /* Fondo con gradiente inspirado en golf */
     .stApp {
         background: linear-gradient(135deg, #0f1a0f 0%, #1a3a14 100%);
@@ -31,7 +49,7 @@ st.markdown("""
     div[data-testid="stAppViewContainer"] h3 {
         color: #ffffff !important;
     }
-
+    
     /* Subtitles and secondary text */
     .stMarkdown div p {
         color: #e0e0e0 !important;
@@ -116,25 +134,38 @@ st.markdown("""
         color: #a8e063 !important;
     }
     
-    /* Botón de login custom */
+    /* Botón de login custom y botones de Dashboard */
     div.stButton > button {
         width: 100%;
         background: linear-gradient(90deg, #56ab2f 0%, #a8e063 100%);
         color: #000 !important;
         font-weight: 700;
-        border-radius: 12px;
+        border-radius: 15px;
         border: none;
-        padding: 0.75rem;
+        padding: 1rem;
         transition: all 0.3s ease;
         text-transform: uppercase;
         letter-spacing: 1px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(168, 224, 99, 0.4);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(168, 224, 99, 0.5);
+        background: linear-gradient(90deg, #a8e063 0%, #56ab2f 100%);
     }
-    
+
+    /* Espaciado entre secciones */
+    .section-container {
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
+        margin-bottom: 1.5rem;
+    }
+
     /* Forzar fondo oscuro en Dataframes y Editores */
     .stDataFrame, [data-testid="stDataFrame"] {
         background-color: #000000 !important;
@@ -165,6 +196,39 @@ st.markdown("""
     }
     
     </style>
+
+    <script>
+        // Inyectar etiquetas meta para iPhone y pantalla completa
+        const head = window.parent.document.getElementsByTagName('head')[0];
+        
+        const meta = window.parent.document.createElement('meta');
+        meta.name = "viewport";
+        meta.content = "width=device-width, initial-scale=1, viewport-fit=cover";
+        head.appendChild(meta);
+
+        const appCapable = window.parent.document.createElement('meta');
+        appCapable.name = "apple-mobile-web-app-capable";
+        appCapable.content = "yes";
+        head.appendChild(appCapable);
+
+        const statusBarStyle = window.parent.document.createElement('meta');
+        statusBarStyle.name = "apple-mobile-web-app-status-bar-style";
+        statusBarStyle.content = "black-translucent";
+        head.appendChild(statusBarStyle);
+
+        // Icono para iPhone (Apple Touch Icon)
+        const touchIcon = window.parent.document.createElement('link');
+        touchIcon.rel = "apple-touch-icon";
+        // Usamos un icono de golf de alta resolución de una CDN confiable
+        touchIcon.href = "https://cdn-icons-png.flaticon.com/512/3068/3068322.png"; 
+        head.appendChild(touchIcon);
+
+        // Favicon para el navegador
+        const favicon = window.parent.document.createElement('link');
+        favicon.rel = "icon";
+        favicon.href = "https://cdn-icons-png.flaticon.com/512/3068/3068322.png";
+        head.appendChild(favicon);
+    </script>
 """, unsafe_allow_html=True)
 
 # --- SISTEMA DE LOGIN ---
@@ -290,8 +354,28 @@ def get_sheet_df(sheet_name):
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1gX16hMqj7xYPlDsNJeeNaQu8sz_2VR-SNDlZedm2vWM/edit"
 
 # --- LÓGICA DE NAVEGACIÓN ---
+if 'menu_selection' not in st.session_state:
+    st.session_state.menu_selection = "Dashboard"
+
 st.sidebar.title("Navegación")
-menu = st.sidebar.radio("Ir a:", ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Gastos", "Caja Socios"])
+menu_options = ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Gastos", "Caja Socios"]
+
+# Función para cambiar menú desde botones
+def set_menu(option):
+    st.session_state.menu_selection = option
+
+# El radio button se sincroniza con el session_state
+menu = st.sidebar.radio(
+    "Ir a:", 
+    menu_options, 
+    index=menu_options.index(st.session_state.menu_selection),
+    key="sidebar_menu"
+)
+
+# Sincronizar si el usuario cambia el radio manualmente
+if menu != st.session_state.menu_selection:
+    st.session_state.menu_selection = menu
+    st.rerun()
 
 client = get_spreadsheet() # Esto ahora devuelve directamente el spreadsheet
 
@@ -516,8 +600,49 @@ if client:
                         st.rerun()
 
         elif menu == "Dashboard":
-            st.title("⛳ DIVOT DEALS")
-            st.subheader("Resumen General del Negocio")
+            st.markdown("""
+                <div style='text-align: center; padding: 1.5rem 0; background: rgba(168, 224, 99, 0.05); border-radius: 25px; margin-bottom: 2rem; border: 1px solid rgba(168, 224, 99, 0.1);'>
+                    <h1 style='font-size: 3.8rem; margin-bottom: -10px; letter-spacing: -2px;'>⛳ Divot</h1>
+                    <p style='font-size: 1.2rem; color: #a8e063; font-weight: 500; opacity: 0.9;'>Sistema de Gestión de Excelencia en Golf</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.subheader("Acceso Rápido")
+            
+            # --- BOTONES DE LANZAMIENTO (LAUNCHPAD) ---
+            # Primera fila
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("👥 CLIENTES", use_container_width=True):
+                    st.session_state.menu_selection = "Clientes"
+                    st.rerun()
+            with col2:
+                if st.button("⛳ PRODUCTOS", use_container_width=True):
+                    st.session_state.menu_selection = "Productos"
+                    st.rerun()
+            with col3:
+                if st.button("🛍️ PEDIDOS", use_container_width=True):
+                    st.session_state.menu_selection = "Pedidos"
+                    st.rerun()
+            
+            # Segunda fila
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                if st.button("🚚 LOGÍSTICA", use_container_width=True):
+                    st.session_state.menu_selection = "Logística/Pedidos"
+                    st.rerun()
+            with col5:
+                if st.button("💸 GASTOS", use_container_width=True):
+                    # Nota: Agregué 'Gastos' al menú si no estaba o lo mapeo aquí
+                    st.session_state.menu_selection = "Gastos"
+                    st.rerun()
+            with col6:
+                if st.button("💰 CAJA SOCIOS", use_container_width=True):
+                    st.session_state.menu_selection = "Caja Socios"
+                    st.rerun()
+
+            st.divider()
+            st.subheader("Resumen de Situación")
             
             # Cargar todos los datos para el resumen con la nueva función robusta
             df_clientes = get_sheet_df("Clientes")
@@ -526,16 +651,16 @@ if client:
             df_productos = get_sheet_df("Productos")
             
             # 1. Métricas Principales
-            col1, col2, col3 = st.columns(3)
-            with col1:
+            m1, m2, m3 = st.columns(3)
+            with m1:
                 total_clientes = len(df_clientes)
-                st.metric("Cantidad de Clientes", total_clientes)
-            with col2:
+                st.metric("👥 Total Clientes", total_clientes)
+            with m2:
                 total_pedidos = len(df_pedidos)
-                st.metric("Total de Pedidos", total_pedidos)
-            with col3:
+                st.metric("🛍️ Total Pedidos", total_pedidos)
+            with m3:
                 venta_total = df_pedidos["Monto_Total"].sum() if not df_pedidos.empty else 0
-                st.metric("Venta Total Acumulada", f"${venta_total:,.2f}")
+                st.metric("💰 Venta Total", f"${venta_total:,.2f}")
             
             st.divider()
             
