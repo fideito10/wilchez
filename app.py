@@ -4,7 +4,7 @@ from google.oauth2.service_account import Credentials
 import pandas as pd
 
 # Configuración de la página
-st.set_page_config(page_title="Divot - Gestión de Golf", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png")
+st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png?v=1.1")
 
 # --- ESTILOS CSS PERSONALIZADOS (AESTHETIC) ---
 st.markdown("""
@@ -198,13 +198,31 @@ st.markdown("""
     </style>
 
     <script>
-        // Inyectar etiquetas meta para iPhone y pantalla completa
+        // Inyectar etiquetas meta para iPhone y pantalla completa (Documento Padre)
         const head = window.parent.document.getElementsByTagName('head')[0];
+        const iconUrl = "https://cdn-icons-png.flaticon.com/512/3068/3068322.png?v=1.1";
         
-        const meta = window.parent.document.createElement('meta');
-        meta.name = "viewport";
-        meta.content = "width=device-width, initial-scale=1, viewport-fit=cover";
-        head.appendChild(meta);
+        // 1. ELIMINAR iconos previos de Streamlit para evitar conflictos
+        const existingIcons = window.parent.document.querySelectorAll('link[rel*="icon"]');
+        existingIcons.forEach(el => el.remove());
+
+        // 2. AGREGAR Apple Touch Icon (Para cuando se agrega al Home Screen)
+        const touchIcon = window.parent.document.createElement('link');
+        touchIcon.rel = "apple-touch-icon";
+        touchIcon.href = iconUrl;
+        head.appendChild(touchIcon);
+
+        // 3. AGREGAR Favicon (Para la pestaña del navegador)
+        const favicon = window.parent.document.createElement('link');
+        favicon.rel = "icon";
+        favicon.href = iconUrl;
+        head.appendChild(favicon);
+
+        // 4. CONFIGURAR Viewport y Modo App
+        const metaVP = window.parent.document.createElement('meta');
+        metaVP.name = "viewport";
+        metaVP.content = "width=device-width, initial-scale=1, viewport-fit=cover";
+        head.appendChild(metaVP);
 
         const appCapable = window.parent.document.createElement('meta');
         appCapable.name = "apple-mobile-web-app-capable";
@@ -215,19 +233,6 @@ st.markdown("""
         statusBarStyle.name = "apple-mobile-web-app-status-bar-style";
         statusBarStyle.content = "black-translucent";
         head.appendChild(statusBarStyle);
-
-        // Icono para iPhone (Apple Touch Icon)
-        const touchIcon = window.parent.document.createElement('link');
-        touchIcon.rel = "apple-touch-icon";
-        // Usamos un icono de golf de alta resolución de una CDN confiable
-        touchIcon.href = "https://cdn-icons-png.flaticon.com/512/3068/3068322.png"; 
-        head.appendChild(touchIcon);
-
-        // Favicon para el navegador
-        const favicon = window.parent.document.createElement('link');
-        favicon.rel = "icon";
-        favicon.href = "https://cdn-icons-png.flaticon.com/512/3068/3068322.png";
-        head.appendChild(favicon);
     </script>
 """, unsafe_allow_html=True)
 
