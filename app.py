@@ -4,7 +4,7 @@ from google.oauth2.service_account import Credentials
 import pandas as pd
 
 # Configuración de la página
-st.set_page_config(page_title="Divot Deals - Gestión de Golf", layout="wide", page_icon="⛳")
+st.set_page_config(page_title="Divot - Gestión de Golf", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png")
 
 # --- ESTILOS CSS PERSONALIZADOS (AESTHETIC) ---
 st.markdown("""
