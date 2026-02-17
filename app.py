@@ -134,36 +134,45 @@ st.markdown("""
         color: #a8e063 !important;
     }
     
-    /* Botón de login custom y botones de Dashboard */
+    /* Botones Estilo Launchpad (App Tiles) */
     div.stButton > button {
         width: 100%;
-        background: linear-gradient(90deg, #56ab2f 0%, #a8e063 100%);
-        color: #000 !important;
+        background: linear-gradient(135deg, #1e3d14 0%, #152b0e 100%);
+        color: #a8e063 !important;
         font-weight: 700;
-        border-radius: 15px;
-        border: none;
-        padding: 1rem;
-        transition: all 0.3s ease;
+        border-radius: 20px;
+        border: 1px solid rgba(168, 224, 99, 0.2);
+        padding: 2rem 1rem !important; /* Más altos */
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         text-transform: uppercase;
         letter-spacing: 1px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
+        min-height: 120px;
     }
     
     div.stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px rgba(168, 224, 99, 0.5);
-        background: linear-gradient(90deg, #a8e063 0%, #56ab2f 100%);
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 12px 40px rgba(168, 224, 99, 0.2);
+        border: 1px solid #a8e063;
+        background: linear-gradient(135deg, #2a521c 0%, #1e3d14 100%);
+    }
+
+    div.stButton > button p {
+        font-size: 1.1rem !important;
+        margin-top: 5px;
     }
 
     /* Espaciado entre secciones */
     .section-container {
         padding: 1.5rem;
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 20px;
-        margin-bottom: 1.5rem;
+        border-radius: 25px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     /* Forzar fondo oscuro en Dataframes y Editores */
@@ -614,35 +623,34 @@ if client:
             
             st.subheader("Acceso Rápido")
             
-            # --- BOTONES DE LANZAMIENTO (LAUNCHPAD) ---
-            # Primera fila
-            col1, col2, col3 = st.columns(3)
+            # --- BOTONES DE LANZAMIENTO (LAUNCHPAD - 2 COLUMNAS PARA MÓVIL) ---
+            col1, col2 = st.columns(2)
             with col1:
-                if st.button("👥 CLIENTES", use_container_width=True):
+                if st.button("👥\nCLIENTES", use_container_width=True):
                     st.session_state.menu_selection = "Clientes"
                     st.rerun()
             with col2:
-                if st.button("⛳ PRODUCTOS", use_container_width=True):
+                if st.button("⛳\nPRODUCTOS", use_container_width=True):
                     st.session_state.menu_selection = "Productos"
                     st.rerun()
+            
+            col3, col4 = st.columns(2)
             with col3:
-                if st.button("🛍️ PEDIDOS", use_container_width=True):
+                if st.button("🛍️\nPEDIDOS", use_container_width=True):
                     st.session_state.menu_selection = "Pedidos"
                     st.rerun()
-            
-            # Segunda fila
-            col4, col5, col6 = st.columns(3)
             with col4:
-                if st.button("🚚 LOGÍSTICA", use_container_width=True):
+                if st.button("🚚\nLOGÍSTICA", use_container_width=True):
                     st.session_state.menu_selection = "Logística/Pedidos"
                     st.rerun()
+            
+            col5, col6 = st.columns(2)
             with col5:
-                if st.button("💸 GASTOS", use_container_width=True):
-                    # Nota: Agregué 'Gastos' al menú si no estaba o lo mapeo aquí
+                if st.button("💸\nGASTOS", use_container_width=True):
                     st.session_state.menu_selection = "Gastos"
                     st.rerun()
             with col6:
-                if st.button("💰 CAJA SOCIOS", use_container_width=True):
+                if st.button("💰\nCAJA SOCIOS", use_container_width=True):
                     st.session_state.menu_selection = "Caja Socios"
                     st.rerun()
 
