@@ -368,28 +368,17 @@ def get_sheet_df(sheet_name):
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1gX16hMqj7xYPlDsNJeeNaQu8sz_2VR-SNDlZedm2vWM/edit"
 
 # --- LÓGICA DE NAVEGACIÓN ---
-if 'menu_selection' not in st.session_state:
-    st.session_state.menu_selection = "Dashboard"
-
-st.sidebar.title("Navegación")
 menu_options = ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Gastos", "Caja Socios"]
 
-# Función para cambiar menú desde botones
-def set_menu(option):
-    st.session_state.menu_selection = option
+if 'sidebar_menu' not in st.session_state:
+    st.session_state.sidebar_menu = "Dashboard"
 
-# El radio button se sincroniza con el session_state
+# El radio button usa 'sidebar_menu' como su estado interno
 menu = st.sidebar.radio(
     "Ir a:", 
     menu_options, 
-    index=menu_options.index(st.session_state.menu_selection),
     key="sidebar_menu"
 )
-
-# Sincronizar si el usuario cambia el radio manualmente
-if menu != st.session_state.menu_selection:
-    st.session_state.menu_selection = menu
-    st.rerun()
 
 client = get_spreadsheet() # Esto ahora devuelve directamente el spreadsheet
 
@@ -627,31 +616,31 @@ if client:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("👥\nCLIENTES", use_container_width=True):
-                    st.session_state.menu_selection = "Clientes"
+                    st.session_state.sidebar_menu = "Clientes"
                     st.rerun()
             with col2:
                 if st.button("⛳\nPRODUCTOS", use_container_width=True):
-                    st.session_state.menu_selection = "Productos"
+                    st.session_state.sidebar_menu = "Productos"
                     st.rerun()
             
             col3, col4 = st.columns(2)
             with col3:
                 if st.button("🛍️\nPEDIDOS", use_container_width=True):
-                    st.session_state.menu_selection = "Pedidos"
+                    st.session_state.sidebar_menu = "Pedidos"
                     st.rerun()
             with col4:
                 if st.button("🚚\nLOGÍSTICA", use_container_width=True):
-                    st.session_state.menu_selection = "Logística/Pedidos"
+                    st.session_state.sidebar_menu = "Logística/Pedidos"
                     st.rerun()
             
             col5, col6 = st.columns(2)
             with col5:
                 if st.button("💸\nGASTOS", use_container_width=True):
-                    st.session_state.menu_selection = "Gastos"
+                    st.session_state.sidebar_menu = "Gastos"
                     st.rerun()
             with col6:
                 if st.button("💰\nCAJA SOCIOS", use_container_width=True):
-                    st.session_state.menu_selection = "Caja Socios"
+                    st.session_state.sidebar_menu = "Caja Socios"
                     st.rerun()
 
             st.divider()
