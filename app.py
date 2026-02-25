@@ -134,8 +134,8 @@ st.markdown("""
         color: #a8e063 !important;
     }
     
-    /* Botones Estilo Launchpad (App Tiles) */
-    div.stButton > button {
+    /* Botones Estilo Launchpad (App Tiles) - SOLO EN DASHBOARD */
+    .launchpad-container div.stButton > button {
         width: 100%;
         background: linear-gradient(135deg, #1e3d14 0%, #152b0e 100%);
         color: #a8e063 !important;
@@ -204,6 +204,58 @@ st.markdown("""
         color: #000000 !important;
     }
     
+    /* Botones de navegación rápida (Home) */
+    .home-buttons-overlay {
+        position: fixed;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 60px;
+        z-index: 999999;
+        pointer-events: none; /* Dejar pasar clicks fuera de los botones */
+    }
+    
+    .home-buttons-overlay .stButton {
+        pointer-events: auto; /* Habilitar clicks en los botones */
+    }
+
+    .home-btn-fixed-top {
+        position: absolute;
+        top: 80px;
+    }
+    
+    .home-buttons-overlay .stButton button {
+        width: 50px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #1e3d14 !important;
+        border: 2px solid #a8e063 !important;
+        color: #a8e063 !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.8) !important;
+    }
+    
+    .home-buttons-overlay .stButton button p {
+        font-size: 1.5rem !important;
+        margin: 0 !important;
+    }
+
+    @media (max-width: 768px) {
+        .home-buttons-overlay {
+            left: 5px;
+        }
+        .home-btn-fixed-top {
+            top: 70px;
+        }
+        .home-btn-fixed-bottom {
+            bottom: 70px;
+        }
+    }
+    
     </style>
 
     <script>
@@ -249,6 +301,21 @@ st.markdown("""
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
+def render_home_buttons():
+    """Renderiza dos botones flotantes (uno ARRIBA y uno ABAJO) usando un overlay fijo."""
+    if 'logged_in' in st.session_state and st.session_state.logged_in:
+        if st.session_state.get('menu_actual', 'Dashboard') != "Dashboard":
+            st.markdown('<div class="home-buttons-overlay">', unsafe_allow_html=True)
+            
+            # Botón Superior
+            st.markdown('<div class="home-btn-fixed-top">', unsafe_allow_html=True)
+            if st.button("🏠", key="btn_home_top"):
+                st.session_state.menu_actual = "Dashboard"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
 def login():
     st.markdown('<div class="login-container">', unsafe_allow_html=True)
     st.markdown('<div class="login-logo">⛳</div>', unsafe_allow_html=True)
@@ -260,7 +327,7 @@ def login():
         pwd = st.text_input("Contraseña", type="password", placeholder="Tu contraseña", key="login_pwd")
         
         if st.button("INGRESAR AL SISTEMA"):
-            if user == "Wilches1" and pwd == "Soygordo":
+            if (user == "Wilches1" and pwd == "Soygordo") or (user == "pablo" and pwd == "Nometounputt"):
                 st.session_state.logged_in = True
                 st.success("Acceso concedido. ¡Bienvenido!")
                 st.rerun()
@@ -273,6 +340,9 @@ def login():
 if not st.session_state.logged_in:
     login()
     st.stop()
+
+# Renderizar botones de Home si ya está logueado
+render_home_buttons()
 
 # --- BOTÓN DE CERRAR SESIÓN EN SIDEBAR ---
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -322,7 +392,8 @@ STRUCTURE = {
     "Tareas": ["ID_Tarea", "ID_Pedido", "Descripcion", "Fecha_Limite", "Estado"],
     "Gastos": ["ID_Gasto", "Fecha", "Categoria", "Descripcion", "Monto", "Socio"],
     "Socios": ["ID_Socio", "Nombre"],
-    "Retiros_Socios": ["ID_Retiro", "ID_Socio", "Fecha", "Monto", "Concepto"]
+    "Retiros_Socios": ["ID_Retiro", "ID_Socio", "Fecha", "Monto", "Concepto"],
+    "Cobros": ["ID_Cobro", "ID_Pedido", "ID_Cliente", "Fecha", "Monto", "Moneda", "Socio", "Metodo_Pago", "Observaciones"]
 }
 
 @st.cache_data(ttl=300)
@@ -368,7 +439,7 @@ def get_sheet_df(sheet_name):
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1gX16hMqj7xYPlDsNJeeNaQu8sz_2VR-SNDlZedm2vWM/edit"
 
 # --- LÓGICA DE NAVEGACIÓN ---
-menu_options = ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Gastos", "Caja Socios"]
+menu_options = ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Cobros", "Gastos", "Cuenta Corriente"]
 
 if 'menu_actual' not in st.session_state:
     st.session_state.menu_actual = "Dashboard"
@@ -523,20 +594,22 @@ if client:
             else:
                 st.info("Inicializando productos...")
 
-        elif menu == "Caja Socios":
-            st.title("💰 Caja y Corriente de Socios")
+        elif menu == "Cuenta Corriente":
+            st.title("💰 Cuenta Corriente de Socios")
             
             # Leer datos necesarios con la nueva función robusta
+            df_clientes = get_sheet_df("Clientes")
             df_pedid = get_sheet_df("Pedidos")
             df_detal = get_sheet_df("Pedidos_Detalle")
             df_produ = get_sheet_df("Productos")
             df_gasto = get_sheet_df("Gastos")
             df_socio = get_sheet_df("Socios")
             df_retir = get_sheet_df("Retiros_Socios")
+            df_cobros = get_sheet_df("Cobros")
 
             # --- CÁLCULO DE GANANCIA DISPONIBLE ---
             # Ingresos Reales (Lo que se cobró efectivamente)
-            ingresos_reales = df_pedid["Monto_Pagado"].sum() if not df_pedid.empty else 0
+            ingresos_reales = df_cobros["Monto"].sum() if not df_cobros.empty else 0
             
             # Gastos Totales
             gastos_totales = df_gasto["Monto"].sum() if not df_gasto.empty else 0
@@ -545,6 +618,48 @@ if client:
             caja_disponible = ingresos_reales - gastos_totales
             
             st.metric("Caja Total Disponible (Ventas Cobradas - Gastos)", f"${caja_disponible:,.2f}")
+
+            # --- ESTADO DE SITUACIÓN CLIENTES ---
+            st.divider()
+            st.subheader("📊 Estado de Situación Clientes")
+            
+            if not df_pedid.empty and not df_clientes.empty:
+                # Asegurar que los montos sean numéricos
+                df_pedid["Monto_Total"] = pd.to_numeric(df_pedid["Monto_Total"], errors='coerce').fillna(0)
+                df_pedid["Monto_Pagado"] = pd.to_numeric(df_pedid["Monto_Pagado"], errors='coerce').fillna(0)
+                
+                # Agrupar por ID_Cliente para obtener totales por cliente
+                resumen_clientes = df_pedid.groupby("ID_Cliente").agg({
+                    "Monto_Total": "sum",
+                    "Monto_Pagado": "sum"
+                }).reset_index()
+                
+                # Calcular Saldo Pendiente (Deuda)
+                resumen_clientes["Saldo_Pendiente"] = resumen_clientes["Monto_Total"] - resumen_clientes["Monto_Pagado"]
+                
+                # Unir con la tabla de Clientes para tener el nombre
+                resumen_clientes = resumen_clientes.merge(df_clientes[["ID_Cliente", "Nombre_Razon_Social"]], on="ID_Cliente", how="left")
+                
+                # Reordenar y renombrar para la vista
+                vista_clientes = resumen_clientes[["Nombre_Razon_Social", "Monto_Total", "Monto_Pagado", "Saldo_Pendiente"]].copy()
+                vista_clientes.columns = ["Cliente", "Total Pedidos (USD)", "Total Pagado (USD)", "Saldo Deudor (USD)"]
+                
+                # Mostrar tabla con formato
+                st.dataframe(
+                    vista_clientes.sort_values(by="Saldo Deudor (USD)", ascending=False),
+                    column_config={
+                        "Total Pedidos (USD)": st.column_config.NumberColumn(format="$%.2f"),
+                        "Total Pagado (USD)": st.column_config.NumberColumn(format="$%.2f"),
+                        "Saldo Deudor (USD)": st.column_config.NumberColumn(format="$%.2f"),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+                
+                total_deuda_global = vista_clientes["Saldo Deudor (USD)"].sum()
+                st.info(f"👉 **Deuda Total de Clientes a cobrar: ${total_deuda_global:,.2f}**")
+            else:
+                st.info("No hay pedidos registrados para calcular el estado de los clientes.")
             
             # --- CUENTA CORRIENTE POR SOCIO ---
             st.subheader("Estado de Cuentas por Socio")
@@ -561,14 +676,16 @@ if client:
                     # 1. Cuánto cobró este socio (Pedidos)
                     # El campo se llama 'Socio_Responsable' en Pedidos
                     # Usamos el nombre del socio para comparar (ej: "Socio 1 Wilches")
-                    cobros_socio = 0
-                    if not df_pedid.empty:
-                        # Buscar coincidencias por nombre (que es lo que guardamos)
-                        # El socio_nombre en la tabla Socios es "Socio 1", pero en el selectbox pusimos "Socio 1 Wilches" 
-                        # Nota: En el selectbox de pedidos pusimos ["Socio 1 Wilches", "Socio 2 Pablo"]
-                        # Debemos ser cuidadosos con la comparación.
-                        # Una opción es buscar si el nombre corto está contenido en el nombre guardado.
-                        cobros_socio = df_pedid[df_pedid["Socio_Responsable"].str.contains(socio_nombre, na=False)]["Monto_Pagado"].astype(float).sum()
+                    cobros_socio_usd = 0
+                    cobros_socio_ars = 0
+                    if not df_cobros.empty:
+                        # Asegurar que Moneda exista
+                        if "Moneda" not in df_cobros.columns:
+                            df_cobros["Moneda"] = "USD" # Default para datos viejos
+                            
+                        socio_data = df_cobros[df_cobros["Socio"].str.contains(socio_nombre, na=False)]
+                        cobros_socio_usd = socio_data[socio_data["Moneda"] == "USD"]["Monto"].astype(float).sum()
+                        cobros_socio_ars = socio_data[socio_data["Moneda"] == "ARS"]["Monto"].astype(float).sum()
                     
                     # 2. Cuánto gastó este socio (Gastos)
                     gastos_socio = 0
@@ -586,7 +703,8 @@ if client:
                     display_nombre = "Socio 1 Wilches" if "Socio 1" in socio_nombre else ("Socio 2 Pablo" if "Socio 2" in socio_nombre else socio_nombre)
                     
                     st.info(f"**🟢 {display_nombre}**")
-                    st.write(f"💵 Cobros realizados: **${cobros_socio:,.2f}**")
+                    st.write(f"💵 Cobrado USD: **${cobros_socio_usd:,.2f}**")
+                    st.write(f"🇦🇷 Cobrado ARS: **${cobros_socio_ars:,.2f}**")
                     st.write(f"💸 Gastos realizados: **${gastos_socio:,.2f}**")
                     st.divider()
                     st.write(f"💰 Retiros realizados: **${total_retirado:,.2f}**")
@@ -623,6 +741,7 @@ if client:
             
             st.subheader("Acceso Rápido")
             
+            st.markdown('<div class="launchpad-container">', unsafe_allow_html=True)
             # --- BOTONES DE LANZAMIENTO (LAUNCHPAD - 2 COLUMNAS PARA MÓVIL) ---
             col1, col2 = st.columns(2)
             with col1:
@@ -644,15 +763,20 @@ if client:
                     st.session_state.menu_actual = "Logística/Pedidos"
                     st.rerun()
             
-            col5, col6 = st.columns(2)
+            col5, col6, col7 = st.columns(3)
             with col5:
                 if st.button("💸\nGASTOS", use_container_width=True):
                     st.session_state.menu_actual = "Gastos"
                     st.rerun()
             with col6:
-                if st.button("💰\nCAJA SOCIOS", use_container_width=True):
-                    st.session_state.menu_actual = "Caja Socios"
+                if st.button("💳\nCOBROS", use_container_width=True):
+                    st.session_state.menu_actual = "Cobros"
                     st.rerun()
+            with col7:
+                if st.button("💰\nCUENTA CORRIENTE", use_container_width=True):
+                    st.session_state.menu_actual = "Cuenta Corriente"
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
             st.divider()
             st.subheader("Resumen de Situación")
@@ -788,11 +912,6 @@ if client:
                     # 3. Datos Finales y Guardar
                     with st.form("confirmar_guardado"):
                         st.subheader("📝 Finalizar y Guardar")
-                        col_f1, col_f2 = st.columns(2)
-                        with col_f1:
-                            cobro_hoy = st.number_input("Cobro realizado hoy (USD)", min_value=0.0, max_value=float(total_final), value=0.0)
-                        with col_f2:
-                            socio_cobro = st.selectbox("Socio que cobra", ["Socio 1 Wilches", "Socio 2 Pablo"])
                         
                         obs = st.text_area("Observaciones / Elementos necesarios", placeholder="Ej: entrega inmediata, seña recibida...")
                         
@@ -805,8 +924,8 @@ if client:
                                 # Guardar en Pedidos (Enviar 13 valores para coincidir con la estructura)
                                 # ["ID_Pedido", "ID_Cliente", "Fecha", "Estado", "Monto_Total", "Monto_Pagado", "Observaciones", "Materiales", "Obreros", "Fecha_Trabajo", "Fecha_Entrega", "Socio_Responsable", "Personal_Asignado"]
                                 row_pedido = [
-                                    id_pedido, id_cliente, fecha_hoy, "Pendiente", total_final, cobro_hoy, obs,
-                                    "", "", "", "", socio_cobro, ""
+                                    id_pedido, id_cliente, fecha_hoy, "Pendiente", total_final, 0, obs,
+                                    "", "", "", "", "", ""
                                 ]
                                 spreadsheet.worksheet("Pedidos").append_row(row_pedido)
                                 
@@ -984,6 +1103,134 @@ if client:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
+
+        elif menu == "Cobros":
+            st.title("💳 Registro de Cobros (Pagos de Clientes)")
+            
+            # Cargar datos
+            df_clientes = get_sheet_df("Clientes")
+            df_pedidos = get_sheet_df("Pedidos")
+            df_cobros = get_sheet_df("Cobros")
+            
+            if df_clientes.empty:
+                st.warning("No hay clientes registrados.")
+            else:
+                # 1. Dashboard de Deudas
+                st.subheader("📊 Resumen de Saldos Pendientes")
+                
+                # Calcular deuda por pedido
+                df_pedidos["Monto_Total"] = pd.to_numeric(df_pedidos["Monto_Total"], errors='coerce').fillna(0)
+                df_pedidos["Monto_Pagado"] = pd.to_numeric(df_pedidos["Monto_Pagado"], errors='coerce').fillna(0)
+                df_pedidos["Saldo_Pendiente"] = df_pedidos["Monto_Total"] - df_pedidos["Monto_Pagado"]
+                
+                # Agrupar por cliente
+                deuda_clientes = df_pedidos.groupby("ID_Cliente")["Saldo_Pendiente"].sum().reset_index()
+                deuda_clientes = deuda_clientes[deuda_clientes["Saldo_Pendiente"] > 0]
+                
+                if not deuda_clientes.empty:
+                    deuda_clientes = deuda_clientes.merge(df_clientes[["ID_Cliente", "Nombre_Razon_Social"]], on="ID_Cliente")
+                    st.dataframe(deuda_clientes[["Nombre_Razon_Social", "Saldo_Pendiente"]].rename(columns={"Nombre_Razon_Social": "Cliente", "Saldo_Pendiente": "Total Deuda (USD)"}), hide_index=True, use_container_width=True)
+                else:
+                    st.success("No hay saldos pendientes de cobro! 🎉")
+                
+                st.divider()
+                
+                # 2. Registrar Nuevo Cobro
+                st.subheader("📥 Registrar Nuevo Cobro")
+                
+                # Seleccionar Cliente
+                clientes_con_deuda = df_clientes[df_clientes["ID_Cliente"].isin(df_pedidos[df_pedidos["Monto_Total"] > df_pedidos["Monto_Pagado"]]["ID_Cliente"])]
+                
+                if clientes_con_deuda.empty:
+                    st.info("Todos los pedidos están pagados.")
+                else:
+                    with st.form("nuevo_cobro"):
+                        # Opción 1: Cobro general a cliente (se aplica a pedidos más antiguos)
+                        # Opción 2: Cobro a pedido específico
+                        
+                        cliente_opciones = clientes_con_deuda.apply(lambda x: f"{x['Nombre_Razon_Social']} [{x['ID_Cliente']}]", axis=1).tolist()
+                        cliente_sel = st.selectbox("Cliente", cliente_opciones)
+                        id_cliente_sel = cliente_sel.split("[")[-1].replace("]", "")
+                        
+                        # Filtrar pedidos pendientes de este cliente
+                        pedidos_pendientes = df_pedidos[(df_pedidos["ID_Cliente"] == id_cliente_sel) & (df_pedidos["Monto_Total"] > df_pedidos["Monto_Pagado"])]
+                        pedido_opciones = ["Pago General (A cuenta)"] + pedidos_pendientes.apply(lambda x: f"Pedido {x['ID_Pedido']} (Saldo: ${x['Monto_Total']-x['Monto_Pagado']:.2f})", axis=1).tolist()
+                        
+                        pedido_sel = st.selectbox("Aplicar a:", pedido_opciones)
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            monto_cobro = st.number_input("Monto a cobrar", min_value=0.0, step=10.0)
+                            moneda_cobro = st.selectbox("Moneda", ["USD", "ARS"])
+                        with col2:
+                            fecha_cobro = st.date_input("Fecha", value=pd.to_datetime("today"))
+                            metodo_pago = st.selectbox("Método de Pago", ["Efectivo", "Transferencia", "Cheque", "Otro"])
+                        with col3:
+                            socio_cobro = st.selectbox("Socio que recibe", ["Socio 1 Wilches", "Socio 2 Pablo"])
+                        
+                        obs_cobro = st.text_input("Observaciones")
+                        
+                        if st.form_submit_button("Confirmar Cobro"):
+                            if monto_cobro <= 0:
+                                st.error("El monto debe ser mayor a 0.")
+                            else:
+                                try:
+                                    # Determinar ID_Pedido
+                                    id_pedido_cobro = ""
+                                    if "Pedido" in pedido_sel:
+                                        id_pedido_cobro = pedido_sel.split(" ")[1]
+                                    
+                                    # 1. Registrar el cobro en la hoja de Cobros
+                                    id_c = f"COB{len(df_cobros) + 1:03d}"
+                                    # ["ID_Cobro", "ID_Pedido", "ID_Cliente", "Fecha", "Monto", "Moneda", "Socio", "Metodo_Pago", "Observaciones"]
+                                    row_cobro = [id_c, id_pedido_cobro, id_cliente_sel, str(fecha_cobro), monto_cobro, moneda_cobro, socio_cobro, metodo_pago, obs_cobro]
+                                    spreadsheet.worksheet("Cobros").append_row(row_cobro)
+                                    
+                                    # 2. Actualizar el Monto_Pagado en la hoja de Pedidos
+                                    # Si es un pedido específico:
+                                    if id_pedido_cobro:
+                                        # Buscar fila en Pedidos
+                                        df_p_all = get_sheet_df("Pedidos") # Refrescar para estar seguros
+                                        idx = df_p_all[df_p_all["ID_Pedido"] == id_pedido_cobro].index[0]
+                                        nuevo_pagado = float(df_p_all.at[idx, "Monto_Pagado"]) + monto_cobro
+                                        
+                                        # Actualizar en Sheets (la fila es idx + 2 porque headers + 0-index)
+                                        # La columna Monto_Pagado es la 6ta (F)
+                                        spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
+                                    else:
+                                        # Si es pago general, distribuirlo entre pedidos pendientes
+                                        monto_restante = monto_cobro
+                                        df_p_all = get_sheet_df("Pedidos")
+                                        pedidos_cliente = df_p_all[df_p_all["ID_Cliente"] == id_cliente_sel].sort_values(by="Fecha")
+                                        
+                                        for idx, row in pedidos_cliente.iterrows():
+                                            if monto_restante <= 0: break
+                                            
+                                            total = float(row["Monto_Total"])
+                                            pagado = float(row["Monto_Pagado"])
+                                            deuda = total - pagado
+                                            
+                                            if deuda > 0:
+                                                pago_a_este = min(deuda, monto_restante)
+                                                nuevo_pagado = pagado + pago_a_este
+                                                spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
+                                                monto_restante -= pago_a_este
+                                    
+                                    st.cache_data.clear()
+                                    st.success(f"Cobro de ${monto_cobro} registrado con éxito!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al registrar cobro: {e}")
+                
+                st.divider()
+                st.subheader("📜 Historial de Cobros")
+                if not df_cobros.empty:
+                    df_cobros_disp = df_cobros.copy()
+                    # Unir con clientes para nombre
+                    df_cobros_disp = df_cobros_disp.merge(df_clientes[["ID_Cliente", "Nombre_Razon_Social"]], on="ID_Cliente", how="left")
+                    st.dataframe(df_cobros_disp[["Fecha", "Nombre_Razon_Social", "Monto", "Metodo_Pago", "Socio", "ID_Pedido", "Observaciones"]].sort_values(by="Fecha", ascending=False), hide_index=True, use_container_width=True)
+                else:
+                    st.info("No hay cobros registrados aún.")
 
         elif menu == "Gastos":
             st.title("💸 Registro de Gastos")
