@@ -100,9 +100,20 @@ st.markdown("""
         opacity: 0.9;
     }
     
-    /* Estilo para inputs de Streamlit */
-    div[data-baseweb="input"] input {
-        color: #000000 !important;
+    /* Texto blanco en TODOS los inputs (aplica a todos los módulos) */
+    div[data-baseweb="input"] input,
+    div[data-baseweb="input"] textarea,
+    textarea {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        caret-color: #a8e063 !important;
+    }
+
+    /* Placeholder en gris claro para contraste */
+    div[data-baseweb="input"] input::placeholder,
+    textarea::placeholder {
+        color: rgba(255, 255, 255, 0.45) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.45) !important;
     }
     
     /* Sidebar styling */
@@ -193,15 +204,59 @@ st.markdown("""
         color: #a8e063 !important;
     }
 
-    /* Inputs y áreas de texto */
-    div[data-baseweb="input"], div[data-baseweb="textarea"] {
-        background-color: rgba(255, 255, 255, 0.9) !important;
+    /* Inputs y áreas de texto — fondo oscuro + borde verde suave */
+    div[data-baseweb="input"],
+    div[data-baseweb="textarea"],
+    [data-baseweb="base-input"] {
+        background-color: rgba(255, 255, 255, 0.08) !important;
         border: 1px solid rgba(168, 224, 99, 0.4) !important;
+        border-radius: 8px !important;
+    }
+
+    /* Selectbox y number-input también en oscuro */
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] input {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    /* Valor seleccionado en selectbox */
+    div[data-baseweb="select"] [data-testid="stSelectboxValue"] {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    /* Number input texto */
+    input[type="number"],
+    input[type="text"],
+    input[type="password"] {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
     
-    /* Forzar color negro en etiquetas SOLO en el login para visibilidad */
+    /* ── LOGIN: override para mantener fondo claro + texto negro ── */
+    /* Forzar color negro en etiquetas SOLO en el login */
     .login-container label {
         color: #000000 !important;
+    }
+
+    /* Input del login: fondo blanco, texto negro, para contraste sobre el card */
+    .login-container div[data-baseweb="input"],
+    .login-container div[data-baseweb="textarea"],
+    .login-container [data-baseweb="base-input"] {
+        background-color: rgba(255, 255, 255, 0.92) !important;
+    }
+
+    .login-container div[data-baseweb="input"] input,
+    .login-container div[data-baseweb="input"] input::placeholder {
+        color: #1a1a1a !important;
+        -webkit-text-fill-color: #1a1a1a !important;
+    }
+
+    .login-container div[data-baseweb="input"] input::placeholder {
+        color: rgba(0,0,0,0.4) !important;
+        -webkit-text-fill-color: rgba(0,0,0,0.4) !important;
     }
     
     /* Botones de navegación rápida (Home) */
@@ -1157,67 +1212,90 @@ if client:
                         pedido_opciones = ["Pago General (A cuenta)"] + pedidos_pendientes.apply(lambda x: f"Pedido {x['ID_Pedido']} (Saldo: ${x['Monto_Total']-x['Monto_Pagado']:.2f})", axis=1).tolist()
                         
                         pedido_sel = st.selectbox("Aplicar a:", pedido_opciones)
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            monto_cobro = st.number_input("Monto a cobrar", min_value=0.0, step=10.0)
-                            moneda_cobro = st.selectbox("Moneda", ["USD", "ARS"])
-                        with col2:
+
+                        # --- Bloque USD ---
+                        st.markdown("---")
+                        col_usd1, col_usd2 = st.columns(2)
+                        with col_usd1:
+                            st.markdown("**💵 Monto en USD**")
+                            monto_usd = st.number_input("Monto USD", min_value=0.0, step=10.0, value=0.0, key="cobro_usd", label_visibility="collapsed")
+                        with col_usd2:
+                            metodo_usd = st.selectbox("Forma de cobro USD", ["Efectivo", "Transferencia", "Cheque", "Seña", "Otro"], key="metodo_usd")
+
+                        # --- Bloque ARS ---
+                        col_ars1, col_ars2 = st.columns(2)
+                        with col_ars1:
+                            st.markdown("**🇦🇷 Monto en ARS (Pesos)**")
+                            monto_ars = st.number_input("Monto ARS", min_value=0.0, step=100.0, value=0.0, key="cobro_ars", label_visibility="collapsed")
+                        with col_ars2:
+                            metodo_ars = st.selectbox("Forma de cobro ARS", ["Efectivo", "Transferencia", "Cheque", "Seña", "Otro"], key="metodo_ars")
+
+                        st.markdown("---")
+                        # --- Datos compartidos ---
+                        col_d1, col_d2 = st.columns(2)
+                        with col_d1:
                             fecha_cobro = st.date_input("Fecha", value=pd.to_datetime("today"))
-                            metodo_pago = st.selectbox("Método de Pago", ["Efectivo", "Transferencia", "Cheque", "Otro"])
-                        with col3:
+                        with col_d2:
                             socio_cobro = st.selectbox("Socio que recibe", ["Socio 1 Wilches", "Socio 2 Pablo"])
-                        
+
                         obs_cobro = st.text_input("Observaciones")
-                        
-                        if st.form_submit_button("Confirmar Cobro"):
-                            if monto_cobro <= 0:
-                                st.error("El monto debe ser mayor a 0.")
+
+                        st.info(f"💡 Total a registrar: **USD {monto_usd:,.2f}** ({metodo_usd}) + **ARS {monto_ars:,.2f}** ({metodo_ars})")
+
+                        if st.form_submit_button("✅ Confirmar Cobro"):
+                            if monto_usd <= 0 and monto_ars <= 0:
+                                st.error("Ingresá al menos un monto mayor a 0 (USD o ARS).")
                             else:
                                 try:
                                     # Determinar ID_Pedido
                                     id_pedido_cobro = ""
                                     if "Pedido" in pedido_sel:
                                         id_pedido_cobro = pedido_sel.split(" ")[1]
-                                    
-                                    # 1. Registrar el cobro en la hoja de Cobros
-                                    id_c = f"COB{len(df_cobros) + 1:03d}"
-                                    # ["ID_Cobro", "ID_Pedido", "ID_Cliente", "Fecha", "Monto", "Moneda", "Socio", "Metodo_Pago", "Observaciones"]
-                                    row_cobro = [id_c, id_pedido_cobro, id_cliente_sel, str(fecha_cobro), monto_cobro, moneda_cobro, socio_cobro, metodo_pago, obs_cobro]
-                                    spreadsheet.worksheet("Cobros").append_row(row_cobro)
-                                    
-                                    # 2. Actualizar el Monto_Pagado en la hoja de Pedidos
-                                    # Si es un pedido específico:
-                                    if id_pedido_cobro:
-                                        # Buscar fila en Pedidos
-                                        df_p_all = get_sheet_df("Pedidos") # Refrescar para estar seguros
-                                        idx = df_p_all[df_p_all["ID_Pedido"] == id_pedido_cobro].index[0]
-                                        nuevo_pagado = float(df_p_all.at[idx, "Monto_Pagado"]) + monto_cobro
-                                        
-                                        # Actualizar en Sheets (la fila es idx + 2 porque headers + 0-index)
-                                        # La columna Monto_Pagado es la 6ta (F)
-                                        spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
-                                    else:
-                                        # Si es pago general, distribuirlo entre pedidos pendientes
-                                        monto_restante = monto_cobro
-                                        df_p_all = get_sheet_df("Pedidos")
-                                        pedidos_cliente = df_p_all[df_p_all["ID_Cliente"] == id_cliente_sel].sort_values(by="Fecha")
-                                        
-                                        for idx, row in pedidos_cliente.iterrows():
-                                            if monto_restante <= 0: break
-                                            
-                                            total = float(row["Monto_Total"])
-                                            pagado = float(row["Monto_Pagado"])
-                                            deuda = total - pagado
-                                            
-                                            if deuda > 0:
-                                                pago_a_este = min(deuda, monto_restante)
-                                                nuevo_pagado = pagado + pago_a_este
-                                                spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
-                                                monto_restante -= pago_a_este
-                                    
+
+                                    sh_cobros = spreadsheet.worksheet("Cobros")
+                                    cobros_count = len(df_cobros)
+
+                                    # --- Guardar fila USD si tiene monto ---
+                                    if monto_usd > 0:
+                                        cobros_count += 1
+                                        id_c_usd = f"COB{cobros_count:03d}"
+                                        # ["ID_Cobro","ID_Pedido","ID_Cliente","Fecha","Monto","Moneda","Socio","Metodo_Pago","Observaciones"]
+                                        sh_cobros.append_row([id_c_usd, id_pedido_cobro, id_cliente_sel, str(fecha_cobro), monto_usd, "USD", socio_cobro, metodo_usd, obs_cobro])
+
+                                    # --- Guardar fila ARS si tiene monto ---
+                                    if monto_ars > 0:
+                                        cobros_count += 1
+                                        id_c_ars = f"COB{cobros_count:03d}"
+                                        sh_cobros.append_row([id_c_ars, id_pedido_cobro, id_cliente_sel, str(fecha_cobro), monto_ars, "ARS", socio_cobro, metodo_ars, obs_cobro])
+
+                                    # --- Actualizar Monto_Pagado en Pedidos (solo USD, ya que los pedidos son en USD) ---
+                                    if monto_usd > 0:
+                                        if id_pedido_cobro:
+                                            df_p_all = get_sheet_df("Pedidos")
+                                            idx = df_p_all[df_p_all["ID_Pedido"] == id_pedido_cobro].index[0]
+                                            nuevo_pagado = float(df_p_all.at[idx, "Monto_Pagado"]) + monto_usd
+                                            spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
+                                        else:
+                                            # Pago general: distribuir USD entre pedidos pendientes
+                                            monto_restante = monto_usd
+                                            df_p_all = get_sheet_df("Pedidos")
+                                            pedidos_cliente = df_p_all[df_p_all["ID_Cliente"] == id_cliente_sel].sort_values(by="Fecha")
+                                            for idx, prow in pedidos_cliente.iterrows():
+                                                if monto_restante <= 0:
+                                                    break
+                                                total  = float(prow["Monto_Total"])
+                                                pagado = float(prow["Monto_Pagado"])
+                                                deuda  = total - pagado
+                                                if deuda > 0:
+                                                    pago_a_este = min(deuda, monto_restante)
+                                                    spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, pagado + pago_a_este)
+                                                    monto_restante -= pago_a_este
+
                                     st.cache_data.clear()
-                                    st.success(f"Cobro de ${monto_cobro} registrado con éxito!")
+                                    partes = []
+                                    if monto_usd > 0: partes.append(f"USD {monto_usd:,.2f}")
+                                    if monto_ars > 0: partes.append(f"ARS {monto_ars:,.2f}")
+                                    st.success(f"Cobro registrado: {' + '.join(partes)} ✅")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Error al registrar cobro: {e}")
