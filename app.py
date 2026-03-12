@@ -14,11 +14,15 @@ st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-ico
 # --- ESTILOS CSS PERSONALIZADOS (AESTHETIC) ---
 st.markdown("""
     <style>
-    /* Ocultar elementos nativos de Streamlit para look premium */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    [data-testid="stToolbar"] {visibility: hidden;}
+    /* Ocultar elementos nativos de Streamlit - MODO AGRESIVO */
+    #MainMenu {display: none !important;}
+    footer {display: none !important;}
+    header {display: none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    [data-testid="stStatusWidget"] {display: none !important;}
+    #streamlitDetails {display: none !important;}
+    .viewerBadge_container__1QS1n {display: none !important;}
     
     /* Importar fuente premium */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
@@ -355,6 +359,12 @@ st.markdown("""
         appCapable.name = "apple-mobile-web-app-capable";
         appCapable.content = "yes";
         head.appendChild(appCapable);
+
+        // FORZAR ICONO PARA IPHONE (AL AGREGAR AL INICIO)
+        const appleIcon = window.parent.document.createElement('link');
+        appleIcon.rel = "apple-touch-icon";
+        appleIcon.href = iconUrl;
+        head.appendChild(appleIcon);
 
         const statusBarStyle = window.parent.document.createElement('meta');
         statusBarStyle.name = "apple-mobile-web-app-status-bar-style";
