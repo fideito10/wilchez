@@ -385,7 +385,9 @@ if not st.session_state.logged_in:
             st.session_state.user_email = session_data.get("email")
             st.session_state.user_name = session_data.get("name")
             st.session_state.login_method = session_data.get("method")
-        except Exception:
+        except Exception as e:
+            # Si hay error con la cookie (ej: mal formateada), la borramos
+            cookie_manager.delete(cookie="divot_session")
             pass
 
 # Google OAuth Configuration
@@ -523,7 +525,12 @@ def login():
 
 # Si no está logueado, mostrar login y detener ejecución
 if not st.session_state.logged_in:
-    login()
+    try:
+        login()
+    except Exception as e:
+        st.error(f"Error en el sistema de acceso: {e}")
+        if st.button("Intentar de nuevo"):
+            st.rerun()
     st.stop()
 
 # Renderizar botones de Home si ya está logueado
