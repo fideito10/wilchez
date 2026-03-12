@@ -428,7 +428,7 @@ def login():
 
         result = oauth2.authorize_button(
             name="🔐  Continuar con Google",
-            redirect_uri="http://localhost:8501",
+            redirect_uri="https://divotdeals.streamlit.app/",
             scope="openid email profile",
             key="google_oauth_btn",
             extras_params={"prompt": "select_account"},
