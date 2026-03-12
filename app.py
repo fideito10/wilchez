@@ -360,6 +360,16 @@ st.markdown("""
 # --- CONFIGURACIÓN DE COOKIES PARA PERSISTENCIA ---
 cookie_manager = xtc.CookieManager()
 
+# Inicializar sesión si no existe
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'user_email' not in st.session_state:
+    st.session_state.user_email = None
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = None
+if 'login_method' not in st.session_state:
+    st.session_state.login_method = None
+
 # Recuperar sesión de la cookie si existe
 if not st.session_state.logged_in:
     saved_session = cookie_manager.get(cookie="divot_session")
