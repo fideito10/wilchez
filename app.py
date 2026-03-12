@@ -5,6 +5,8 @@ import pandas as pd
 from streamlit_oauth import OAuth2Component
 import base64
 import json
+import extra_streamlit_components as xtc
+from datetime import datetime, timedelta
 
 # Configuración de la página
 st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png?v=1.1")
@@ -355,15 +357,26 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# --- SISTEMA DE LOGIN CON GOOGLE OAUTH ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'user_email' not in st.session_state:
-    st.session_state.user_email = None
-if 'user_name' not in st.session_state:
-    st.session_state.user_name = None
-if 'login_method' not in st.session_state:
-    st.session_state.login_method = None
+# --- CONFIGURACIÓN DE COOKIES PARA PERSISTENCIA ---
+cookie_manager = xtc.CookieManager()
+
+# Recuperar sesión de la cookie si existe
+if not st.session_state.logged_in:
+    saved_session = cookie_manager.get(cookie="divot_session")
+    if saved_session:
+        try:
+            # Si es un string (JSON), lo decodificamos
+            if isinstance(saved_session, str):
+                session_data = json.loads(saved_session)
+            else:
+                session_data = saved_session
+                
+            st.session_state.logged_in = True
+            st.session_state.user_email = session_data.get("email")
+            st.session_state.user_name = session_data.get("name")
+            st.session_state.login_method = session_data.get("method")
+        except Exception:
+            pass
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID     = st.secrets.get("google_oauth", {}).get("client_id", "")
@@ -443,6 +456,18 @@ def login():
                 st.session_state.user_email = email
                 st.session_state.user_name = name
                 st.session_state.login_method = "google"
+                
+                # GUARDAR COOKIE POR 30 DÍAS
+                session_to_save = {
+                    "email": email,
+                    "name": name,
+                    "method": "google"
+                }
+                cookie_manager.set(
+                    cookie="divot_session",
+                    value=json.dumps(session_to_save),
+                    expires_at=datetime.now() + timedelta(days=30)
+                )
                 st.rerun()
             else:
                 st.error(f"❌ El email **{email}** no tiene acceso a DIVOT.")
@@ -466,6 +491,19 @@ def login():
                 st.session_state.logged_in = True
                 st.session_state.user_name = user
                 st.session_state.login_method = "classic"
+                
+                # GUARDAR COOKIE POR 30 DÍAS
+                session_to_save = {
+                    "email": None,
+                    "name": user,
+                    "method": "classic"
+                }
+                cookie_manager.set(
+                    cookie="divot_session",
+                    value=json.dumps(session_to_save),
+                    expires_at=datetime.now() + timedelta(days=30)
+                )
+                
                 st.success("Acceso concedido. ¡Bienvenido!")
                 st.rerun()
             else:
@@ -483,7 +521,11 @@ render_home_buttons()
 
 # --- BOTÓN DE CERRAR SESIÓN EN SIDEBAR ---
 if st.sidebar.button("🚪 Cerrar Sesión"):
+    # Borrar cookie al salir
+    cookie_manager.delete(cookie="divot_session")
     st.session_state.logged_in = False
+    st.session_state.user_email = None
+    st.session_state.user_name = None
     st.rerun()
 
 # --- CONEXIÓN Y CACHE ---
