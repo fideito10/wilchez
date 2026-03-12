@@ -370,6 +370,31 @@ st.markdown("""
         statusBarStyle.name = "apple-mobile-web-app-status-bar-style";
         statusBarStyle.content = "black-translucent";
         head.appendChild(statusBarStyle);
+
+        // --- HACK PARA ELIMINAR BRANDING DE STREAMLIT CLOUD (BARRA SUPERIOR Y LOGO ROJO) ---
+        const style = window.parent.document.createElement('style');
+        style.innerHTML = `
+            header[data-testid="stHeader"], 
+            footer, 
+            #MainMenu, 
+            div[data-testid="stDecoration"], 
+            div[data-testid="stToolbar"], 
+            .stAppToolbar,
+            #streamlitDetails,
+            .viewerBadge_container__1QS1n,
+            div[class^="viewerBadge_container"] {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+            /* Eliminar el margen que deja el header */
+            .stApp {
+                padding-top: 0px !important;
+                margin-top: 0px !important;
+            }
+        `;
+        head.appendChild(style);
     </script>
 """, unsafe_allow_html=True)
 
