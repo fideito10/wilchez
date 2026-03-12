@@ -477,7 +477,7 @@ def login():
                 }
                 cookie_manager.set(
                     cookie="divot_session",
-                    value=json.dumps(session_to_save),
+                    val=json.dumps(session_to_save),
                     expires_at=datetime.now() + timedelta(days=30)
                 )
                 st.rerun()
@@ -512,7 +512,7 @@ def login():
                 }
                 cookie_manager.set(
                     cookie="divot_session",
-                    value=json.dumps(session_to_save),
+                    val=json.dumps(session_to_save),
                     expires_at=datetime.now() + timedelta(days=30)
                 )
                 
