@@ -14,6 +14,12 @@ st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-ico
 # --- ESTILOS CSS PERSONALIZADOS (AESTHETIC) ---
 st.markdown("""
     <style>
+    /* Ocultar elementos nativos de Streamlit para look premium */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stToolbar"] {visibility: hidden;}
+    
     /* Importar fuente premium */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
     
