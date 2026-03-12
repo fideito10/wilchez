@@ -2,6 +2,9 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
+from streamlit_oauth import OAuth2Component
+import base64
+import json
 
 # Configuración de la página
 st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png?v=1.1")
@@ -352,38 +355,117 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# --- SISTEMA DE LOGIN ---
+# --- SISTEMA DE LOGIN CON GOOGLE OAUTH ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
+if 'user_email' not in st.session_state:
+    st.session_state.user_email = None
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = None
+if 'login_method' not in st.session_state:
+    st.session_state.login_method = None
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID     = st.secrets.get("google_oauth", {}).get("client_id", "")
+GOOGLE_CLIENT_SECRET = st.secrets.get("google_oauth", {}).get("client_secret", "")
+AUTHORIZED_EMAILS    = st.secrets.get("google_oauth", {}).get("authorized_emails", [])
+AUTHORIZE_URL        = "https://accounts.google.com/o/oauth2/v2/auth"
+TOKEN_URL            = "https://oauth2.googleapis.com/token"
 
 def render_home_buttons():
     """Renderiza dos botones flotantes (uno ARRIBA y uno ABAJO) usando un overlay fijo."""
     if 'logged_in' in st.session_state and st.session_state.logged_in:
         if st.session_state.get('menu_actual', 'Dashboard') != "Dashboard":
             st.markdown('<div class="home-buttons-overlay">', unsafe_allow_html=True)
-            
-            # Botón Superior
             st.markdown('<div class="home-btn-fixed-top">', unsafe_allow_html=True)
             if st.button("🏠", key="btn_home_top"):
                 st.session_state.menu_actual = "Dashboard"
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            
             st.markdown('</div>', unsafe_allow_html=True)
+
+def decode_user_info(token):
+    """Decodifica el JWT id_token de Google para obtener email y nombre."""
+    try:
+        payload = token.get("id_token", "").split(".")[1]
+        # Agregar padding si es necesario
+        payload += "=" * (4 - len(payload) % 4)
+        decoded = json.loads(base64.b64decode(payload).decode("utf-8"))
+        return decoded.get("email", ""), decoded.get("name", "Usuario")
+    except Exception:
+        return "", "Usuario"
 
 def login():
     st.markdown('<div class="login-container">', unsafe_allow_html=True)
     st.markdown('<div class="login-logo">⛳</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-title">DIVOT DEALS</div>', unsafe_allow_html=True)
     st.markdown('<div class="login-subtitle">Excellence in Golf Equipment</div>', unsafe_allow_html=True)
-    
+
+    # --- GOOGLE OAUTH BUTTON ---
+    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_ID != "TU_CLIENT_ID_AQUI.apps.googleusercontent.com":
+        oauth2 = OAuth2Component(
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            authorize_endpoint=AUTHORIZE_URL,
+            token_endpoint=TOKEN_URL,
+        )
+        # Estilo del botón de Google
+        st.markdown("""
+            <style>
+            div[data-testid="stButton"] > button[kind="secondary"] {
+                background: white !important;
+                color: #1a1a1a !important;
+                border: 1px solid #dadce0 !important;
+                border-radius: 8px !important;
+                font-weight: 600 !important;
+                padding: 0.6rem 1rem !important;
+                width: 100% !important;
+                margin-bottom: 1rem !important;
+                -webkit-text-fill-color: #1a1a1a !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        result = oauth2.authorize_button(
+            name="🔐  Continuar con Google",
+            redirect_uri="http://localhost:8501",
+            scope="openid email profile",
+            key="google_oauth_btn",
+            extras_params={"prompt": "select_account"},
+            use_container_width=True,
+        )
+
+        if result and "token" in result:
+            email, name = decode_user_info(result["token"])
+            # Verificar si el email está autorizado
+            if not AUTHORIZED_EMAILS or email in AUTHORIZED_EMAILS:
+                st.session_state.logged_in = True
+                st.session_state.user_email = email
+                st.session_state.user_name = name
+                st.session_state.login_method = "google"
+                st.rerun()
+            else:
+                st.error(f"❌ El email **{email}** no tiene acceso a DIVOT.")
+                st.info("Contactá al administrador para que te agregue a la lista autorizada.")
+
+        st.markdown("""
+            <div style='display:flex; align-items:center; margin: 1rem 0;'>
+                <div style='flex:1; height:1px; background:rgba(255,255,255,0.2);'></div>
+                <span style='padding: 0 12px; color:rgba(255,255,255,0.5); font-size:0.85rem;'>o usá tu usuario</span>
+                <div style='flex:1; height:1px; background:rgba(255,255,255,0.2);'></div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # --- LOGIN CLÁSICO (FALLBACK) ---
     with st.container():
         user = st.text_input("Usuario", placeholder="Tu usuario", key="login_user")
-        pwd = st.text_input("Contraseña", type="password", placeholder="Tu contraseña", key="login_pwd")
+        pwd  = st.text_input("Contraseña", type="password", placeholder="Tu contraseña", key="login_pwd")
         
-        if st.button("INGRESAR AL SISTEMA"):
+        if st.button("INGRESAR AL SISTEMA", use_container_width=True):
             if (user == "Wilches1" and pwd == "Soygordo") or (user == "pablo" and pwd == "Nometounputt"):
                 st.session_state.logged_in = True
+                st.session_state.user_name = user
+                st.session_state.login_method = "classic"
                 st.success("Acceso concedido. ¡Bienvenido!")
                 st.rerun()
             else:
