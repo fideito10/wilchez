@@ -360,7 +360,7 @@ st.markdown("""
         appCapable.content = "yes";
         head.appendChild(appCapable);
 
-        // FORZAR ICONO PARA IPHONE (AL AGREGAR AL INICIO)
+        // --- FORZAR ICONO PARA IPHONE ---
         const appleIcon = window.parent.document.createElement('link');
         appleIcon.rel = "apple-touch-icon";
         appleIcon.href = iconUrl;
@@ -371,30 +371,35 @@ st.markdown("""
         statusBarStyle.content = "black-translucent";
         head.appendChild(statusBarStyle);
 
-        // --- HACK PARA ELIMINAR BRANDING DE STREAMLIT CLOUD (BARRA SUPERIOR Y LOGO ROJO) ---
-        const style = window.parent.document.createElement('style');
-        style.innerHTML = `
-            header[data-testid="stHeader"], 
-            footer, 
-            #MainMenu, 
-            div[data-testid="stDecoration"], 
-            div[data-testid="stToolbar"], 
-            .stAppToolbar,
-            #streamlitDetails,
-            .viewerBadge_container__1QS1n,
-            div[class^="viewerBadge_container"] {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
-            /* Eliminar el margen que deja el header */
-            .stApp {
-                padding-top: 0px !important;
-                margin-top: 0px !important;
-            }
-        `;
-        head.appendChild(style);
+        // --- HACK DEFINITIVO PARA ELIMINAR BRANDING (EJECUCIÓN CONTINUA) ---
+        function hideBranding() {
+            const selectors = [
+                'header', 'footer', '#MainMenu', 
+                'div[data-testid="stHeader"]', 
+                'div[data-testid="stToolbar"]', 
+                'div[data-testid="stDecoration"]',
+                'div[class^="viewerBadge_container"]',
+                '.stAppToolbar',
+                '#streamlitDetails'
+            ];
+            
+            selectors.forEach(s => {
+                // Borrar en la app
+                document.querySelectorAll(s).forEach(el => el.style.setProperty('display', 'none', 'important'));
+                // Borrar en el contenedor de Streamlit Cloud
+                try {
+                    window.parent.document.querySelectorAll(s).forEach(el => {
+                        el.style.setProperty('display', 'none', 'important');
+                        el.style.setProperty('visibility', 'hidden', 'important');
+                        el.style.setProperty('opacity', '0', 'important');
+                    });
+                } catch (e) {}
+            });
+        }
+
+        // Ejecutar inmediatamente y cada 500ms para asegurar limpieza total
+        hideBranding();
+        setInterval(hideBranding, 500);
     </script>
 """, unsafe_allow_html=True)
 
