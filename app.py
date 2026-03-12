@@ -425,7 +425,7 @@ def login():
     st.markdown('<div class="login-subtitle">Excellence in Golf Equipment</div>', unsafe_allow_html=True)
 
     # --- GOOGLE OAUTH BUTTON ---
-    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_ID != "TU_CLIENT_ID_AQUI.apps.googleusercontent.com":
+    if GOOGLE_CLIENT_ID:
         oauth2 = OAuth2Component(
             client_id=GOOGLE_CLIENT_ID,
             client_secret=GOOGLE_CLIENT_SECRET,
