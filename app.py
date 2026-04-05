@@ -628,7 +628,7 @@ def get_sheet_df(sheet_name):
 # --- ESTRUCTURA GLOBAL ---
 STRUCTURE = {
     "Clientes": ["ID_Cliente", "Nombre_Razon_Social", "Dirección", "Teléfono", "Mail", "CUIT"],
-    "Productos": ["ID_Producto", "Nombre", "Unidad", "Precio_Costo", "Precio_Venta"],
+    "Productos": ["ID_Producto", "Nombre", "Unidad", "Precio_Costo", "Precio_Venta", "Stock"],
     "Pedidos": ["ID_Pedido", "ID_Cliente", "Fecha", "Estado", "Monto_Total", "Monto_Pagado", "Observaciones", "Materiales", "Obreros", "Fecha_Trabajo", "Fecha_Entrega", "Socio_Responsable", "Personal_Asignado"],
     "Pedidos_Detalle": ["ID_Detalle", "ID_Pedido", "ID_Producto", "Cantidad", "Precio_Historico"],
     "Tareas": ["ID_Tarea", "ID_Pedido", "Descripcion", "Fecha_Limite", "Estado"],
@@ -681,7 +681,16 @@ def get_sheet_df(sheet_name):
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1gX16hMqj7xYPlDsNJeeNaQu8sz_2VR-SNDlZedm2vWM/edit"
 
 # --- LÓGICA DE NAVEGACIÓN ---
-menu_options = ["Dashboard", "Clientes", "Productos", "Pedidos", "Logística/Pedidos", "Cobros", "Gastos", "Cuenta Corriente"]
+menu_options = [
+    "🏠 Dashboard", 
+    "👥 Clientes", 
+    "📦 Stock", 
+    "🛍️ Pedidos", 
+    "🚚 Logística", 
+    "💳 Cobros", 
+    "💸 Gastos", 
+    "💰 Cuenta Corriente"
+]
 
 if 'menu_actual' not in st.session_state:
     st.session_state.menu_actual = "Dashboard"
@@ -703,6 +712,10 @@ menu = st.sidebar.radio(
 if menu != st.session_state.menu_actual:
     st.session_state.menu_actual = menu
     st.rerun()
+
+# Definir menu_limpio para la lógica de los if/elif
+menu_actual = st.session_state.menu_actual
+menu_limpio = menu_actual.split(" ", 1)[-1] if " " in menu_actual else menu_actual
 
 client = get_spreadsheet() # Esto ahora devuelve directamente el spreadsheet
 
@@ -764,7 +777,7 @@ if client:
         # --- CONFIGURACIÓN DE ESTRUCTURA ---
         ensure_structure(spreadsheet)
 
-        if menu == "Clientes":
+        if menu_limpio == "Clientes":
             st.title("👥 Gestión de Clientes")
             sheet = spreadsheet.worksheet("Clientes")
             
@@ -804,39 +817,65 @@ if client:
             else:
                 st.info("No hay clientes registrados aún.")
 
-        elif menu == "Productos":
-            st.title("⛳ Gestión de Productos")
+        elif menu_limpio == "Stock":
+            st.title("📦 Gestión de Stock e Inventario")
             sheet = spreadsheet.worksheet("Productos")
             df_prod = get_sheet_df("Productos")
 
-            st.write("A continuación puedes actualizar los precios de tus productos fijos.")
+            st.write("Editá los nombres, unidades, precios y stock de tus productos fijos.")
             
             if not df_prod.empty:
-                # Usar un editor de datos de Streamlit para actualizar precios
-                edited_df = st.data_editor(
-                    df_prod,
-                    column_config={
-                        "ID_Producto": st.column_config.TextColumn(disabled=True),
-                        "Nombre": st.column_config.TextColumn(disabled=True),
-                        "Unidad": st.column_config.TextColumn(disabled=True),
-                        "Precio_Costo": st.column_config.NumberColumn(format="$%.2f"),
-                        "Precio_Venta": st.column_config.NumberColumn(format="$%.2f"),
-                    },
-                    hide_index=True,
-                    use_container_width=True
-                )
-                
-                if st.button("Guardar Cambios de Precios"):
-                    # Actualizar toda la hoja con los nuevos datos
-                    # (Más simple para 4 productos)
-                    sheet.update([df_prod.columns.values.tolist()] + edited_df.values.tolist())
-                    st.cache_data.clear()
-                    st.success("Precios actualizados correctamente!")
-                    st.rerun()
-            else:
-                st.info("Inicializando productos...")
+                # Asegurar valores numéricos
+                df_prod["Stock"] = pd.to_numeric(df_prod["Stock"], errors='coerce').fillna(0)
+                df_prod["Precio_Venta"] = pd.to_numeric(df_prod["Precio_Venta"], errors='coerce').fillna(0)
+                df_prod["Precio_Costo"] = pd.to_numeric(df_prod["Precio_Costo"], errors='coerce').fillna(0)
 
-        elif menu == "Cuenta Corriente":
+                # Contenedor para los productos
+                new_data = []
+                
+                for i, row in df_prod.iterrows():
+                    with st.container():
+                        st.markdown(f"<h3 style='color: #a8e063; margin-top: 1.5rem;'>📦 Producto: {row['Nombre']}</h3>", unsafe_allow_html=True)
+                        
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            new_nombre = st.text_input(f"Nombre del producto", value=str(row['Nombre']), key=f"name_{i}")
+                        with c2:
+                            new_unidad = st.text_input(f"Unidad (M2, Unidad, etc.)", value=str(row['Unidad']), key=f"unit_{i}")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            # Stock como entero (sin decimales)
+                            new_stock = st.number_input(f"Stock disponible", value=int(float(row['Stock'])), key=f"stock_{i}", step=1)
+                        with col2:
+                            new_costo = st.number_input(f"Precio Costo (USD)", value=float(row['Precio_Costo']), key=f"costo_{i}", step=1.0, format="%.2f")
+                        with col3:
+                            new_venta = st.number_input(f"Precio Venta (USD)", value=float(row['Precio_Venta']), key=f"venta_{i}", step=1.0, format="%.2f")
+                        
+                        # Guardamos los nuevos valores en una lista
+                        new_data.append([
+                            row['ID_Producto'], new_nombre, new_unidad, 
+                            new_costo, new_venta, int(new_stock)
+                        ])
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.divider()
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("💾 GUARDAR TODOS LOS CAMBIOS", use_container_width=True, type="primary"):
+                    try:
+                        # Encabezados
+                        headers = STRUCTURE["Productos"]
+                        # Actualizar toda la hoja
+                        sheet.update([headers] + new_data)
+                        st.cache_data.clear()
+                        st.success("✅ ¡Inventario y precios actualizados exitosamente!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
+            else:
+                st.info("No hay productos cargados en el sistema.")
+
+        elif menu_limpio == "Cuenta Corriente":
             st.title("💰 Cuenta Corriente de Socios")
             
             # Leer datos necesarios con la nueva función robusta
@@ -973,7 +1012,7 @@ if client:
                         st.success("Retiro registrado correctamente!")
                         st.rerun()
 
-        elif menu == "Dashboard":
+        elif menu_limpio == "Dashboard":
             st.markdown("""
                 <div style='text-align: center; padding: 1.5rem 0; background: rgba(168, 224, 99, 0.05); border-radius: 25px; margin-bottom: 2rem; border: 1px solid rgba(168, 224, 99, 0.1);'>
                     <h1 style='font-size: 3.8rem; margin-bottom: -10px; letter-spacing: -2px;'>⛳ Divot</h1>
@@ -988,35 +1027,35 @@ if client:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("👥\nCLIENTES", use_container_width=True):
-                    st.session_state.menu_actual = "Clientes"
+                    st.session_state.menu_actual = "👥 Clientes"
                     st.rerun()
             with col2:
-                if st.button("⛳\nPRODUCTOS", use_container_width=True):
-                    st.session_state.menu_actual = "Productos"
+                if st.button("📦\nSTOCK", use_container_width=True):
+                    st.session_state.menu_actual = "📦 Stock"
                     st.rerun()
             
             col3, col4 = st.columns(2)
             with col3:
                 if st.button("🛍️\nPEDIDOS", use_container_width=True):
-                    st.session_state.menu_actual = "Pedidos"
+                    st.session_state.menu_actual = "🛍️ Pedidos"
                     st.rerun()
             with col4:
                 if st.button("🚚\nLOGÍSTICA", use_container_width=True):
-                    st.session_state.menu_actual = "Logística/Pedidos"
+                    st.session_state.menu_actual = "🚚 Logística"
                     st.rerun()
             
             col5, col6, col7 = st.columns(3)
             with col5:
                 if st.button("💸\nGASTOS", use_container_width=True):
-                    st.session_state.menu_actual = "Gastos"
+                    st.session_state.menu_actual = "💸 Gastos"
                     st.rerun()
             with col6:
                 if st.button("💳\nCOBROS", use_container_width=True):
-                    st.session_state.menu_actual = "Cobros"
+                    st.session_state.menu_actual = "💳 Cobros"
                     st.rerun()
             with col7:
                 if st.button("💰\nCUENTA CORRIENTE", use_container_width=True):
-                    st.session_state.menu_actual = "Cuenta Corriente"
+                    st.session_state.menu_actual = "💰 Cuenta Corriente"
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1081,7 +1120,7 @@ if client:
                 else:
                     st.info("No hay datos de ventas aún.")
 
-        elif menu == "Pedidos":
+        elif menu_limpio == "Pedidos":
             st.title("🛍️ Arma el Pedido")
             
             # Cargar datos
@@ -1163,7 +1202,34 @@ if client:
                             fecha_hoy = str(pd.to_datetime("today").date())
                             
                             try:
-                                # Guardar en Pedidos (Enviar 13 valores para coincidir con la estructura)
+                                # --- 1. DESCUENTO AUTOMÁTICO DE STOCK ---
+                                sheet_prod = spreadsheet.worksheet("Productos")
+                                df_p_actual = get_sheet_df("Productos")
+                                
+                                # Primero verificamos stock de todos para no descontar a medias si uno falla
+                                for item in st.session_state.carrito_pedido:
+                                    id_p = item["ID_Producto"]
+                                    cant_p = float(item["Cantidad"])
+                                    
+                                    idx_prod = df_p_actual[df_p_actual["ID_Producto"] == id_p].index[0]
+                                    available = float(df_p_actual.at[idx_prod, "Stock"])
+                                    
+                                    if available < cant_p:
+                                        st.error(f"⚠️ Stock insuficiente para '{item['Producto']}'. Disponible: {available}")
+                                        st.stop()
+
+                                # Si pasó el check, descontamos
+                                for item in st.session_state.carrito_pedido:
+                                    id_p = item["ID_Producto"]
+                                    cant_p = float(item["Cantidad"])
+                                    idx_prod = df_p_actual[df_p_actual["ID_Producto"] == id_p].index[0]
+                                    new_stock = float(df_p_actual.at[idx_prod, "Stock"]) - cant_p
+                                    # Actualizar columna 6 (Stock) en Google Sheets
+                                    # index+2 porque headers es row 1 y pandas es 0-indexed
+                                    sheet_prod.update_cell(int(idx_prod) + 2, 6, int(new_stock))
+
+                                # --- 2. GUARDAR DATOS DEL PEDIDO ---
+                                # Enviar 13 valores para coincidir con la estructura
                                 # ["ID_Pedido", "ID_Cliente", "Fecha", "Estado", "Monto_Total", "Monto_Pagado", "Observaciones", "Materiales", "Obreros", "Fecha_Trabajo", "Fecha_Entrega", "Socio_Responsable", "Personal_Asignado"]
                                 row_pedido = [
                                     id_pedido, id_cliente, fecha_hoy, "Pendiente", total_final, 0, obs,
@@ -1179,16 +1245,16 @@ if client:
                                     ])
                                 spreadsheet.worksheet("Pedidos_Detalle").append_rows(detalle_rows)
                                 
-                                st.success(f"¡Pedido {id_pedido} guardado con éxito!")
+                                st.success(f"¡Pedido {id_pedido} guardado con éxito! Se descontó el stock automáticamente.")
                                 st.session_state.carrito_pedido = []
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Error al guardar: {e}")
+                                st.error(f"Error al procesar el pedido o stock: {e}")
                 else:
                     st.info("Agrega productos arriba para armar el pedido.")
 
-        elif menu == "Logística/Pedidos":
+        elif menu_limpio == "Logística":
             st.title("🚚 Gestión y Logística de Pedidos")
             
             df_pedidos = get_sheet_df("Pedidos")
@@ -1346,7 +1412,7 @@ if client:
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
 
-        elif menu == "Cobros":
+        elif menu_limpio == "Cobros":
             st.title("💳 Registro de Cobros (Pagos de Clientes)")
             
             # Cargar datos
@@ -1497,7 +1563,7 @@ if client:
                 else:
                     st.info("No hay cobros registrados aún.")
 
-        elif menu == "Gastos":
+        elif menu_limpio == "Gastos":
             st.title("💸 Registro de Gastos")
             sheet = spreadsheet.worksheet("Gastos")
             df_gastos = get_sheet_df("Gastos")
