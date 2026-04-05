@@ -7,6 +7,8 @@ import base64
 import json
 import extra_streamlit_components as xtc
 from datetime import datetime, timedelta
+import time
+import os
 
 # Configuración de la página
 st.set_page_config(page_title="Divot", layout="wide", page_icon="https://cdn-icons-png.flaticon.com/512/3068/3068322.png?v=1.1")
@@ -805,7 +807,9 @@ if client:
                                 id_c = f"C{len(df_clientes) + 1:03d}"
                             sheet.append_row([id_c, nombre, dir, tel, mail, cuit])
                             st.cache_data.clear()
-                            st.success(f"Cliente {nombre} guardado exitosamente!")
+                            st.success(f"✅ Cliente {nombre} guardado exitosamente!")
+                            st.balloons()
+                            time.sleep(2)
                             st.rerun()
                         else:
                             st.warning("Por favor completa al menos el Nombre.")
@@ -874,6 +878,8 @@ if client:
                         sheet.update([headers] + new_data)
                         st.cache_data.clear()
                         st.success("✅ ¡Inventario y precios actualizados exitosamente!")
+                        st.balloons()
+                        time.sleep(2)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
@@ -1014,7 +1020,9 @@ if client:
                             new_id, id_s, str(fecha_ret), monto_ret, concepto_ret
                         ])
                         st.cache_data.clear()
-                        st.success("Retiro registrado correctamente!")
+                        st.success("✅ Retiro registrado correctamente!")
+                        st.balloons()
+                        time.sleep(2)
                         st.rerun()
 
         elif menu_limpio == "Dashboard":
@@ -1250,9 +1258,11 @@ if client:
                                     ])
                                 spreadsheet.worksheet("Pedidos_Detalle").append_rows(detalle_rows)
                                 
-                                st.success(f"¡Pedido {id_pedido} guardado con éxito! Se descontó el stock automáticamente.")
+                                st.success(f"✅ ¡Pedido {id_pedido} guardado con éxito! Se descontó el stock automáticamente.")
+                                st.balloons()
                                 st.session_state.carrito_pedido = []
                                 st.cache_data.clear()
+                                time.sleep(2)
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error al procesar el pedido o stock: {e}")
@@ -1412,7 +1422,8 @@ if client:
                         data_to_update = [sheet_cols] + df_to_save[sheet_cols].values.tolist()
                         spreadsheet.worksheet("Pedidos").update(data_to_update)
                         st.cache_data.clear()
-                        st.success("Logística actualizada correctamente!")
+                        st.success("✅ Logística actualizada correctamente!")
+                        time.sleep(2)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
@@ -1553,7 +1564,9 @@ if client:
                                     partes = []
                                     if monto_usd > 0: partes.append(f"USD {monto_usd:,.2f}")
                                     if monto_ars > 0: partes.append(f"ARS {monto_ars:,.2f}")
-                                    st.success(f"Cobro registrado: {' + '.join(partes)} ✅")
+                                    st.success(f"✅ Cobro registrado: {' + '.join(partes)} ✅")
+                                    st.balloons()
+                                    time.sleep(2)
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Error al registrar cobro: {e}")
@@ -1590,7 +1603,8 @@ if client:
                         id_g = f"G{len(df_gastos) + 1:03d}"
                         sheet.append_row([id_g, str(fecha_g), cat_g, desc_g, monto_g, socio_g])
                         st.cache_data.clear()
-                        st.success("Gasto registrado exitosamente!")
+                        st.success("✅ Gasto registrado exitosamente!")
+                        time.sleep(2)
                         st.rerun()
                     else:
                         st.warning("El monto debe ser mayor a 0.")
