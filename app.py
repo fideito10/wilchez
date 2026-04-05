@@ -825,6 +825,11 @@ if client:
             st.write("Editá los nombres, unidades, precios y stock de tus productos fijos.")
             
             if not df_prod.empty:
+                # --- SEGURIDAD: Verificar si existen las columnas (para planillas viejas) ---
+                for col in ["Stock", "Precio_Venta", "Precio_Costo"]:
+                    if col not in df_prod.columns:
+                        df_prod[col] = 0
+                
                 # Asegurar valores numéricos
                 df_prod["Stock"] = pd.to_numeric(df_prod["Stock"], errors='coerce').fillna(0)
                 df_prod["Precio_Venta"] = pd.to_numeric(df_prod["Precio_Venta"], errors='coerce').fillna(0)
