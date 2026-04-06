@@ -649,7 +649,9 @@ def get_sheet_df(sheet_name):
     
     try:
         sh = ss.worksheet(sheet_name)
-        data = sh.get_all_records()
+        # BUG FIX: Usamos UNFORMATTED_VALUE para obtener el "número puro" de Google Sheets 
+        # y evitar conflictos con puntos/comas locales (ej: 27 interpretado como 27000)
+        data = sh.get_all_records(value_render_option='UNFORMATTED_VALUE')
         df = pd.DataFrame(data)
         
         expected_cols = STRUCTURE[sheet_name]
@@ -659,18 +661,24 @@ def get_sheet_df(sheet_name):
         # Asegurar que todas las columnas esperadas existan
         for col in expected_cols:
             if col not in df.columns:
-                df[col] = "" # Usar string vacío en lugar de None para evitar errores de tipo en pandas
+                df[col] = "" 
                 
         return df[expected_cols]
     except Exception as e:
-        # Si falla get_all_records (ej: por headers duplicados o vacíos), intentamos con table
+        # Fallback si falla get_all_records
         try:
             sh = ss.worksheet(sheet_name)
-            data = sh.get_all_values()
+            data = sh.get_all_values() # Este siempre devuelve strings
             if not data:
                 return pd.DataFrame(columns=STRUCTURE.get(sheet_name, []))
             headers = data[0]
             df = pd.DataFrame(data[1:], columns=headers)
+            
+            # Limpieza agresiva de números si vienen como strings con coma
+            for col in ["Precio_Venta", "Precio_Costo", "Stock", "Monto", "Monto_Total", "Monto_Pagado"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.replace(".", "").str.replace(",", ".")
+            
             expected_cols = STRUCTURE.get(sheet_name, [])
             for col in expected_cols:
                 if col not in df.columns:
@@ -738,40 +746,8 @@ def ensure_structure(_spreadsheet):
         else:
             sh = _spreadsheet.worksheet(name)
             # Verificar si los encabezados coinciden. Si no, actualizarlos para que coincidan con la app.
-            try:
-                current_headers = sh.row_values(1)
-                if not current_headers or current_headers != headers:
-                    # Si la hoja está vacía o los encabezados no coinciden, los corregimos
-                    # Esto asegura que la app vea las columnas con los nombres correctos
-                    if not current_headers:
-                        sh.append_row(headers)
-                    else:
-                        # Si hay datos pero los encabezados están mal, actualizamos la primera fila
-                        # Usamos update con un rango para asegurar que sobreescribimos los viejos
-                        range_end = chr(64 + len(headers)) + "1" # A1:F1 etc
-                        sh.update(f"A1:{range_end}", [headers])
-            except Exception as e:
-                print(f"Error verificando estructura de {name}: {e}")
-    
-    # Inicializar socios si no existen
-    s_sheet = _spreadsheet.worksheet("Socios")
-    if len(s_sheet.get_all_values()) <= 1:
-        base_socios = [
-            ["S001", "Socio 1 Wilches"],
-            ["S002", "Socio 2 Pablo"]
-        ]
-        s_sheet.append_rows(base_socios)
-    
-    # Inicializar productos si no existen
-    p_sheet = _spreadsheet.worksheet("Productos")
-    if len(p_sheet.get_all_values()) <= 1:
-        p_sheet.update('A1:E5', [
-            ["ID_Producto", "Nombre", "Unidad", "Precio_Costo", "Precio_Venta"],
-            ["DVT01", "Golf Matt", "Unidad", 0, 450],
-            ["DVT02", "Tee Strike", "M2", 0, 130],
-            ["DVT03", "Putting green", "M2", 0, 130],
-            ["DVT04", "Putting matt", "Unidad", 0, 100]
-        ])
+    # El auto-llenado ha sido removido a pedido del usuario para iniciar con una planilla limpia.
+    pass
 
 if client:
     spreadsheet = client
@@ -854,17 +830,17 @@ if client:
                         
                         col1, col2, col3 = st.columns(3)
                         with col1:
-                            # Stock como entero (sin decimales)
+                            # MODIFICADO: Solo ENTEROS (sin decimales .00)
                             new_stock = st.number_input(f"Stock disponible", value=int(float(row['Stock'])), key=f"stock_{i}", step=1)
                         with col2:
-                            new_costo = st.number_input(f"Precio Costo (USD)", value=float(row['Precio_Costo']), key=f"costo_{i}", step=1.0, format="%.2f")
+                            new_costo = st.number_input(f"Precio Costo (USD)", value=int(float(row['Precio_Costo'])), key=f"costo_{i}", step=1)
                         with col3:
-                            new_venta = st.number_input(f"Precio Venta (USD)", value=float(row['Precio_Venta']), key=f"venta_{i}", step=1.0, format="%.2f")
+                            new_venta = st.number_input(f"Precio Venta (USD)", value=int(float(row['Precio_Venta'])), key=f"venta_{i}", step=1)
                         
                         # Guardamos los nuevos valores en una lista
                         new_data.append([
                             row['ID_Producto'], new_nombre, new_unidad, 
-                            new_costo, new_venta, int(new_stock)
+                            int(new_costo), int(new_venta), int(new_stock)
                         ])
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.divider()
@@ -1009,7 +985,7 @@ if client:
             with st.expander("💸 Registrar Retiro de Socio"):
                 with st.form("nuevo_retiro"):
                     socio_opcion = st.selectbox("Socio", df_socio["Nombre"].tolist())
-                    monto_ret = st.number_input("Monto a retirar", min_value=0.0)
+                    monto_ret = st.number_input("Monto a retirar", min_value=0, step=1, value=0)
                     fecha_ret = st.date_input("Fecha", value=pd.to_datetime("today"))
                     concepto_ret = st.text_input("Concepto (ej: Adelanto, Pago mensual)")
                     
@@ -1150,6 +1126,34 @@ if client:
                 cliente_sel = st.selectbox("Seleccionar Cliente del sistema", clientes_list, key="sel_cliente_pedido")
                 id_cliente = cliente_sel.split("[")[-1].replace("]", "") if "[" in cliente_sel else cliente_sel
 
+                # --- NUEVO: MOSTRAR ESTADO DE CUENTA DEL CLIENTE ---
+                try:
+                    df_pedidos_all = get_sheet_df("Pedidos")
+                    df_cobros_all = get_sheet_df("Cobros")
+                    
+                    saldo_usd = 0
+                    total_ars = 0
+                    
+                    if not df_pedidos_all.empty:
+                        cliente_pedidos = df_pedidos_all[df_pedidos_all["ID_Cliente"] == id_cliente]
+                        total_p_usd = pd.to_numeric(cliente_pedidos["Monto_Total"], errors='coerce').sum()
+                        total_pa_usd = pd.to_numeric(cliente_pedidos["Monto_Pagado"], errors='coerce').sum()
+                        saldo_usd = total_p_usd - total_pa_usd
+                        
+                    if not df_cobros_all.empty:
+                        cliente_cobros_ars = df_cobros_all[(df_cobros_all["ID_Cliente"] == id_cliente) & (df_cobros_all["Moneda"] == "ARS")]
+                        total_ars = pd.to_numeric(cliente_cobros_ars["Monto"], errors='coerce').sum()
+                    
+                    st.markdown(f"#### 📊 Estado de Cuenta: {cliente_sel.split(' [')[0]}")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        color = "normal" if saldo_usd <= 0 else "inverse"
+                        st.metric("Deuda Pendiente (USD)", f"${saldo_usd:,.2f}", delta=f"-${saldo_usd:,.2f}" if saldo_usd > 0 else None, delta_color=color)
+                    with c2:
+                        st.metric("Total Abonado (ARS)", f"${total_ars:,.2f}")
+                except Exception as e:
+                    st.error(f"Error al calcular saldo: {e}")
+
                 st.divider()
 
                 # 2. Arma el Pedido (Lógica de Carrito)
@@ -1166,12 +1170,12 @@ if client:
                     producto_nombre = st.selectbox("Producto", prod_names, key="add_prod_name")
                 
                 with col_c:
-                    cantidad = st.number_input("Cantidad", min_value=0.1, value=1.0, step=1.0, key="add_prod_cant")
+                    cantidad = st.number_input("Cantidad", min_value=1, value=1, step=1, key="add_prod_cant")
                 
                 with col_pr:
                     # Traer el precio base del producto seleccionado
-                    precio_base = float(df_productos[df_productos["Nombre"] == producto_nombre]["Precio_Venta"].values[0])
-                    precio_final = st.number_input("Precio USD", min_value=0.0, value=precio_base, key="add_prod_price")
+                    precio_base = int(float(df_productos[df_productos["Nombre"] == producto_nombre]["Precio_Venta"].values[0]))
+                    precio_final = st.number_input("Precio USD", min_value=0, value=precio_base, key="add_prod_price", step=1)
                 
                 with col_btn:
                     st.write("") # Espacio
@@ -1207,6 +1211,17 @@ if client:
                     with st.form("confirmar_guardado"):
                         st.subheader("📝 Finalizar y Guardar")
                         
+                        col_s1, col_s2 = st.columns(2)
+                        with col_s1:
+                            st.markdown("**💵 Seña en USD**")
+                            monto_s_usd = st.number_input("Monto USD", min_value=0, value=0, key="seña_usd", step=1)
+                            metodo_s_usd = st.selectbox("Forma Pago USD", ["Efectivo", "Transferencia", "Cheque", "Otro"], key="metodo_s_usd")
+                        with col_s2:
+                            st.markdown("**🇦🇷 Seña en ARS**")
+                            monto_s_ars = st.number_input("Monto ARS", min_value=0, value=0, key="seña_ars", step=1)
+                            metodo_s_ars = st.selectbox("Forma Pago ARS", ["Efectivo", "Transferencia", "Cheque", "Otro"], key="metodo_s_ars")
+                        
+                        socio_recibe = st.selectbox("Socio que recibe la seña", ["Socio 1 Wilches", "Socio 2 Pablo"])
                         obs = st.text_area("Observaciones / Elementos necesarios", placeholder="Ej: entrega inmediata, seña recibida...")
                         
                         if st.form_submit_button("💾  GUARDAR PEDIDO"):
@@ -1238,23 +1253,41 @@ if client:
                                     idx_prod = df_p_actual[df_p_actual["ID_Producto"] == id_p].index[0]
                                     new_stock = float(df_p_actual.at[idx_prod, "Stock"]) - cant_p
                                     # Actualizar columna 6 (Stock) en Google Sheets
-                                    # index+2 porque headers es row 1 y pandas es 0-indexed
-                                    sheet_prod.update_cell(int(idx_prod) + 2, 6, int(new_stock))
+                                    # Usamos float para permitir decimales (metros/m2) y evitar pérdidas de precisión
+                                    sheet_prod.update_cell(int(idx_prod) + 2, 6, float(new_stock))
 
-                                # --- 2. GUARDAR DATOS DEL PEDIDO ---
-                                # Enviar 13 valores para coincidir con la estructura
-                                # ["ID_Pedido", "ID_Cliente", "Fecha", "Estado", "Monto_Total", "Monto_Pagado", "Observaciones", "Materiales", "Obreros", "Fecha_Trabajo", "Fecha_Entrega", "Socio_Responsable", "Personal_Asignado"]
+                                 # --- 2. GUARDAR DATOS DEL PEDIDO ---
                                 row_pedido = [
-                                    id_pedido, id_cliente, fecha_hoy, "Pendiente", total_final, 0, obs,
-                                    "", "", "", "", "", ""
+                                    id_pedido, id_cliente, fecha_hoy, "Pendiente", float(total_final), float(monto_s_usd), obs,
+                                    "", "", "", "", str(socio_recibe), ""
                                 ]
                                 spreadsheet.worksheet("Pedidos").append_row(row_pedido)
+
+                                # --- 3. REGISTRAR COBROS (SEÑAS) ---
+                                if monto_s_usd > 0 or monto_s_ars > 0:
+                                    sh_cob = spreadsheet.worksheet("Cobros")
+                                    df_c_act = get_sheet_df("Cobros")
+                                    c_count = len(df_c_act)
+                                    
+                                    if monto_s_usd > 0:
+                                        c_count += 1
+                                        sh_cob.append_row([
+                                            f"COB{c_count:03d}", id_pedido, id_cliente, fecha_hoy, 
+                                            float(monto_s_usd), "USD", str(socio_recibe), str(metodo_s_usd), f"Seña inicial pedido {id_pedido}"
+                                        ])
+                                    
+                                    if monto_s_ars > 0:
+                                        c_count += 1
+                                        sh_cob.append_row([
+                                            f"COB{c_count:03d}", id_pedido, id_cliente, fecha_hoy, 
+                                            float(monto_s_ars), "ARS", str(socio_recibe), str(metodo_s_ars), f"Seña inicial pedido {id_pedido}"
+                                        ])
                                 
                                 # Guardar en Pedidos_Detalle
                                 detalle_rows = []
                                 for item in st.session_state.carrito_pedido:
                                     detalle_rows.append([
-                                        f"{id_pedido}_{item['ID_Producto']}", id_pedido, item["ID_Producto"], item["Cantidad"], item["Precio"]
+                                        f"{id_pedido}_{item['ID_Producto']}", id_pedido, item["ID_Producto"], float(item["Cantidad"]), float(item["Precio"])
                                     ])
                                 spreadsheet.worksheet("Pedidos_Detalle").append_rows(detalle_rows)
                                 
@@ -1439,25 +1472,6 @@ if client:
             if df_clientes.empty:
                 st.warning("No hay clientes registrados.")
             else:
-                # 1. Dashboard de Deudas
-                st.subheader("📊 Resumen de Saldos Pendientes")
-                
-                # Calcular deuda por pedido
-                df_pedidos["Monto_Total"] = pd.to_numeric(df_pedidos["Monto_Total"], errors='coerce').fillna(0)
-                df_pedidos["Monto_Pagado"] = pd.to_numeric(df_pedidos["Monto_Pagado"], errors='coerce').fillna(0)
-                df_pedidos["Saldo_Pendiente"] = df_pedidos["Monto_Total"] - df_pedidos["Monto_Pagado"]
-                
-                # Agrupar por cliente
-                deuda_clientes = df_pedidos.groupby("ID_Cliente")["Saldo_Pendiente"].sum().reset_index()
-                deuda_clientes = deuda_clientes[deuda_clientes["Saldo_Pendiente"] > 0]
-                
-                if not deuda_clientes.empty:
-                    deuda_clientes = deuda_clientes.merge(df_clientes[["ID_Cliente", "Nombre_Razon_Social"]], on="ID_Cliente")
-                    st.dataframe(deuda_clientes[["Nombre_Razon_Social", "Saldo_Pendiente"]].rename(columns={"Nombre_Razon_Social": "Cliente", "Saldo_Pendiente": "Total Deuda (USD)"}), hide_index=True, use_container_width=True)
-                else:
-                    st.success("No hay saldos pendientes de cobro! 🎉")
-                
-                st.divider()
                 
                 # 2. Registrar Nuevo Cobro
                 st.subheader("📥 Registrar Nuevo Cobro")
@@ -1487,7 +1501,7 @@ if client:
                         col_usd1, col_usd2 = st.columns(2)
                         with col_usd1:
                             st.markdown("**💵 Monto en USD**")
-                            monto_usd = st.number_input("Monto USD", min_value=0.0, step=10.0, value=0.0, key="cobro_usd", label_visibility="collapsed")
+                            monto_usd = st.number_input("Monto USD", min_value=0, step=1, value=0, key="cobro_usd", label_visibility="collapsed")
                         with col_usd2:
                             metodo_usd = st.selectbox("Forma de cobro USD", ["Efectivo", "Transferencia", "Cheque", "Seña", "Otro"], key="metodo_usd")
 
@@ -1495,7 +1509,7 @@ if client:
                         col_ars1, col_ars2 = st.columns(2)
                         with col_ars1:
                             st.markdown("**🇦🇷 Monto en ARS (Pesos)**")
-                            monto_ars = st.number_input("Monto ARS", min_value=0.0, step=100.0, value=0.0, key="cobro_ars", label_visibility="collapsed")
+                            monto_ars = st.number_input("Monto ARS", min_value=0, step=1, value=0, key="cobro_ars", label_visibility="collapsed")
                         with col_ars2:
                             metodo_ars = st.selectbox("Forma de cobro ARS", ["Efectivo", "Transferencia", "Cheque", "Seña", "Otro"], key="metodo_ars")
 
@@ -1542,8 +1556,9 @@ if client:
                                         if id_pedido_cobro:
                                             df_p_all = get_sheet_df("Pedidos")
                                             idx = df_p_all[df_p_all["ID_Pedido"] == id_pedido_cobro].index[0]
-                                            nuevo_pagado = float(df_p_all.at[idx, "Monto_Pagado"]) + monto_usd
-                                            spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, nuevo_pagado)
+                                            nuevo_pagado = float(df_p_all.at[idx, "Monto_Pagado"]) + float(monto_usd)
+                                            # Actualizar columna 6 (Monto_Pagado)
+                                            spreadsheet.worksheet("Pedidos").update_cell(int(idx) + 2, 6, float(nuevo_pagado))
                                         else:
                                             # Pago general: distribuir USD entre pedidos pendientes
                                             monto_restante = monto_usd
@@ -1571,15 +1586,6 @@ if client:
                                 except Exception as e:
                                     st.error(f"Error al registrar cobro: {e}")
                 
-                st.divider()
-                st.subheader("📜 Historial de Cobros")
-                if not df_cobros.empty:
-                    df_cobros_disp = df_cobros.copy()
-                    # Unir con clientes para nombre
-                    df_cobros_disp = df_cobros_disp.merge(df_clientes[["ID_Cliente", "Nombre_Razon_Social"]], on="ID_Cliente", how="left")
-                    st.dataframe(df_cobros_disp[["Fecha", "Nombre_Razon_Social", "Monto", "Metodo_Pago", "Socio", "ID_Pedido", "Observaciones"]].sort_values(by="Fecha", ascending=False), hide_index=True, use_container_width=True)
-                else:
-                    st.info("No hay cobros registrados aún.")
 
         elif menu_limpio == "Gastos":
             st.title("💸 Registro de Gastos")
@@ -1592,7 +1598,7 @@ if client:
                     fecha_g = st.date_input("Fecha", value=pd.to_datetime("today"))
                     cat_g = st.selectbox("Categoría", ["Alquiler", "Servicios", "Materiales", "Marketing", "Otros"])
                 with col2:
-                    monto_g = st.number_input("Monto", min_value=0.0)
+                    monto_g = st.number_input("Monto", min_value=0, step=1, value=0)
                 with col3:
                     socio_g = st.selectbox("Socio que gasta", ["Socio 1 Wilches", "Socio 2 Pablo"])
                 
